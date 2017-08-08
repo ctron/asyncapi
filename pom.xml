@@ -44,6 +44,11 @@
         </repository>
     </distributionManagement>
 
+    <issueManagement>
+        <url>https://github.com/ctron/asyncapi/issues</url>
+        <system>GitHub</system>
+    </issueManagement>
+
     <inceptionYear>2017</inceptionYear>
 
     <developers>

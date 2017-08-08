@@ -17,11 +17,16 @@
 package de.dentrassi.asyncapi.internal.parser;
 
 import static de.dentrassi.asyncapi.AsyncApi.VERSION;
+import static de.dentrassi.asyncapi.internal.parser.Consume.asMap;
+import static de.dentrassi.asyncapi.internal.parser.Consume.asOptionalMap;
+import static de.dentrassi.asyncapi.internal.parser.Consume.asOptionalSet;
+import static de.dentrassi.asyncapi.internal.parser.Consume.asOptionalString;
+import static de.dentrassi.asyncapi.internal.parser.Consume.asSet;
+import static de.dentrassi.asyncapi.internal.parser.Consume.asString;
 
 import java.io.InputStream;
 import java.io.Reader;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,8 +58,6 @@ public class YamlParser {
 
     private final Map<String, ?> document;
 
-    private final Map<String, Type> types = new HashMap<>();
-
     private final Map<String, Message> messages = new HashMap<>();
 
     public YamlParser(final InputStream in) {
@@ -77,18 +80,18 @@ public class YamlParser {
         api.setBaseTopic(asString("baseTopic", this.document));
         api.setHost(asString("host", this.document));
         api.setSchemes(asSet("schemes", this.document));
-        api.setInformation(infoFromYaml(asMap("info", this.document)));
-        api.setTopics(topicsFromYaml(asMap("topics", this.document)));
+        api.setInformation(parseInfo(asMap("info", this.document)));
+        api.setTopics(parseTopics(asMap("topics", this.document)));
 
         final Map<String, ?> components = asMap("components", this.document);
 
-        api.setMessages(messagesFromYaml(asOptionalMap("messages", components).orElse(null)));
-        api.setTypes(typesFromYaml(asOptionalMap("schemas", components).orElse(null)));
+        api.setMessages(parseMessages(asOptionalMap("messages", components).orElse(null)));
+        api.setTypes(parseTypes(asOptionalMap("schemas", components).orElse(null)));
 
         return api;
     }
 
-    private Set<Type> typesFromYaml(final Map<String, ?> map) {
+    private Set<Type> parseTypes(final Map<String, ?> map) {
         if (map == null || map.isEmpty()) {
             return Collections.emptySet();
         }
@@ -103,7 +106,7 @@ public class YamlParser {
         return result;
     }
 
-    private Set<Message> messagesFromYaml(final Map<String, ?> map) {
+    private Set<Message> parseMessages(final Map<String, ?> map) {
         if (map == null || map.isEmpty()) {
             return Collections.emptySet();
         }
@@ -116,29 +119,6 @@ public class YamlParser {
         }
 
         return result;
-    }
-
-    private static <T> T required(final String key, final Optional<T> value) {
-        return value.orElseThrow(() -> keyMissingError(key));
-    }
-
-    private static Set<String> asSet(final String key, final Map<String, ?> map) {
-        return required(key, asOptionalSet(key, map));
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Optional<Set<String>> asOptionalSet(final String key, final Map<String, ?> map) {
-        final Object value = map.get(key);
-
-        if (value == null) {
-            return Optional.empty();
-        }
-
-        if (value instanceof Collection<?>) {
-            return Optional.of(new HashSet<>((Collection<String>) value));
-        }
-
-        throw wrongTypeError(key, Collection.class, value);
     }
 
     private static class Reference implements Iterable<String> {
@@ -175,14 +155,7 @@ public class YamlParser {
             final Reference to = Reference.parse(ref.get());
 
             // FIXME: validate full ref syntax
-
-            final String refName = to.last();
-            final Type type = this.types.get(refName);
-            if (type != null) {
-                return type;
-            }
-
-            return new TypeReference(refName);
+            return new TypeReference(to.last());
         } else {
             return parseExplicitType(name, map);
         }
@@ -193,20 +166,15 @@ public class YamlParser {
         switch (type) {
         case "string": {
             if (map.containsKey("enum")) {
-                return addType(addCommonTypeInfo(parseEnumType(name, map), map));
+                return addCommonTypeInfo(parseEnumType(name, map), map);
             }
-            return addType(addCommonTypeInfo(parseStringType(name, map), map));
+            return addCommonTypeInfo(parseStringType(name, map), map);
         }
         case "object":
-            return addType(addCommonTypeInfo(parseObjectType(name, map), map));
+            return addCommonTypeInfo(parseObjectType(name, map), map);
         default:
-            throw new IllegalStateException("Unknown type: " + type);
+            throw new IllegalStateException(String.format("Unknown type: %s", type));
         }
-    }
-
-    private Type addType(final Type type) {
-        this.types.put(type.getName(), type);
-        return type;
     }
 
     private Type parseEnumType(final String name, final Map<String, ?> map) {
@@ -255,17 +223,17 @@ public class YamlParser {
         return type;
     }
 
-    private Set<Topic> topicsFromYaml(final Map<String, ?> topics) {
+    private Set<Topic> parseTopics(final Map<String, ?> topics) {
         final Set<Topic> result = new HashSet<>();
 
         for (final Map.Entry<String, ?> entry : topics.entrySet()) {
-            result.add(topicFromYaml(entry.getKey(), entry.getValue()));
+            result.add(parseTopic(entry.getKey(), entry.getValue()));
         }
 
         return result;
     }
 
-    private Topic topicFromYaml(final String key, final Object value) {
+    private Topic parseTopic(final String key, final Object value) {
         final Map<String, ?> map = asMap(value);
 
         final Topic result = new Topic();
@@ -305,7 +273,7 @@ public class YamlParser {
         return message;
     }
 
-    private Information infoFromYaml(final Map<String, ?> map) {
+    private Information parseInfo(final Map<String, ?> map) {
         final Information result = new Information();
 
         result.setTitle(asOptionalString("title", map).orElse(null));
@@ -314,58 +282,4 @@ public class YamlParser {
         return result;
     }
 
-    public static Map<String, ?> asMap(final String key, final Map<String, ?> map) {
-        return required(key, asOptionalMap(key, map));
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Optional<Map<String, ?>> asOptionalMap(final String key, final Map<String, ?> map) {
-        final Object result = map.get(key);
-
-        if (result == null) {
-            return Optional.empty();
-        }
-
-        if (result instanceof Map) {
-            return Optional.of((Map<String, ?>) result);
-        }
-
-        throw wrongTypeError(key, Map.class, result);
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Map<String, ?> asMap(final Object value) {
-        if (value instanceof Map) {
-            return (Map<String, ?>) value;
-        }
-
-        throw wrongTypeError(null, Map.class, value);
-    }
-
-    public static Optional<String> asOptionalString(final String key, final Map<String, ?> map) {
-        final Object result = map.get(key);
-
-        if (result == null) {
-            return Optional.empty();
-        }
-
-        if (result instanceof String) {
-            return Optional.ofNullable((String) result);
-        }
-
-        throw wrongTypeError(key, String.class, result);
-    }
-
-    public static String asString(final String key, final Map<String, ?> map) {
-        return required(key, asOptionalString(key, map));
-    }
-
-    private static IllegalStateException wrongTypeError(final String key, final Class<?> expected, final Object result) {
-        return new IllegalStateException(String.format("Key%s is expected to be of type %s (but is %s instead)", key != null ? " '" + key + "'" : "", expected.getSimpleName(),
-                result.getClass().getSimpleName()));
-    }
-
-    private static IllegalStateException keyMissingError(final String key) {
-        return new IllegalStateException(String.format("Key '%s' is missing in map", key));
-    }
 }
