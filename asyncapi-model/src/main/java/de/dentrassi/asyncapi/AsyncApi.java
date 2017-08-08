@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import de.dentrassi.asyncapi.internal.parser.ParserException;
 import de.dentrassi.asyncapi.internal.parser.YamlParser;
 
 public class AsyncApi {
@@ -107,8 +108,10 @@ public class AsyncApi {
      * @param in
      *            the stream to read from
      * @return the model
+     * @throws ParserException
+     *             in case the document cannot be parsed
      */
-    public static AsyncApi parseYaml(final InputStream in) {
+    public static AsyncApi parseYaml(final InputStream in) throws ParserException {
         return new YamlParser(in).parse();
     }
 
@@ -118,8 +121,10 @@ public class AsyncApi {
      * @param reader
      *            the reader to read from
      * @return the model
+     * @throws ParserException
+     *             in case the document cannot be parsed
      */
-    public static AsyncApi parseYaml(final Reader reader) {
+    public static AsyncApi parseYaml(final Reader reader) throws ParserException {
         return new YamlParser(reader).parse();
     }
 
@@ -129,10 +134,14 @@ public class AsyncApi {
      * @param path
      *            the file system resource to read from
      * @return the model
+     * @throws ParserException
+     *             in case the document cannot be parsed
      */
-    public static AsyncApi parseYaml(final Path path) throws IOException {
-        try (InputStream in = Files.newInputStream(path)) {
+    public static AsyncApi parseYaml(final Path path) throws ParserException {
+        try (final InputStream in = Files.newInputStream(path)) {
             return new YamlParser(in).parse();
+        } catch (final IOException e) {
+            throw new ParserException("Failed to read file", e);
         }
     }
 }

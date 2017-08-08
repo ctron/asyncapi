@@ -15,7 +15,6 @@ package de.dentrassi.asyncapi.generator.java;
  * limitations under the License.
  */
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,7 +24,7 @@ import de.dentrassi.asyncapi.AsyncApi;
 import de.dentrassi.asyncapi.internal.parser.YamlParser;
 
 public class Application1 {
-    public static void main(final String[] args) throws IOException {
+    public static void main(final String[] args) throws Exception {
         final Path path = Paths.get("asyncapi-example.yaml");
 
         try (final InputStream in = Files.newInputStream(path)) {

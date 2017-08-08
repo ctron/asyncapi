@@ -60,12 +60,20 @@ public class YamlParser {
 
     private final Map<String, Message> messages = new HashMap<>();
 
-    public YamlParser(final InputStream in) {
-        this.document = asMap(new Yaml().load(in));
+    public YamlParser(final InputStream in) throws ParserException {
+        try {
+            this.document = asMap(new Yaml().load(in));
+        } catch (final Exception e) {
+            throw new ParserException("Failed to parse YAML document", e);
+        }
     }
 
-    public YamlParser(final Reader reader) {
-        this.document = asMap(new Yaml().load(reader));
+    public YamlParser(final Reader reader) throws ParserException {
+        try {
+            this.document = asMap(new Yaml().load(reader));
+        } catch (final Exception e) {
+            throw new ParserException("Failed to parse YAML document", e);
+        }
     }
 
     public AsyncApi parse() {

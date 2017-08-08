@@ -16,7 +16,6 @@
 
 package de.dentrassi.asyncapi;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,7 +26,7 @@ import com.google.gson.GsonBuilder;
 import de.dentrassi.asyncapi.internal.parser.YamlParser;
 
 public class Application {
-    public static void main(final String[] args) throws IOException {
+    public static void main(final String[] args) throws Exception {
 
         final Path path = Paths.get("asyncapi-example.yaml");
 
