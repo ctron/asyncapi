@@ -13,6 +13,7 @@
 
     <artifactId>asyncapi-generator-java</artifactId>
     <name>AsyncAPI :: Java generator</name>
+    <description>A generator for Java objects based on AsyncAPI definitions</description>
 
     <dependencies>
         <dependency>

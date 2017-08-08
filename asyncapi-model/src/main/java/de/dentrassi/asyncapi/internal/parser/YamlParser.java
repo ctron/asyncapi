@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi.parser;
+package de.dentrassi.asyncapi.internal.parser;
 
 import static de.dentrassi.asyncapi.AsyncApi.VERSION;
 
@@ -46,6 +46,9 @@ import de.dentrassi.asyncapi.Topic;
 import de.dentrassi.asyncapi.Type;
 import de.dentrassi.asyncapi.TypeReference;
 
+/**
+ * Parser for AsyncAPI definitions encoded as YAML
+ */
 public class YamlParser {
 
     private final Map<String, ?> document;
@@ -66,8 +69,7 @@ public class YamlParser {
         final String version = asString("asyncapi", this.document);
 
         if (!VERSION.equals(version)) {
-            throw new IllegalStateException(
-                    String.format("Only version '%s' is supported, this is version '%s'", VERSION, version));
+            throw new IllegalStateException(String.format("Only version '%s' is supported, this is version '%s'", VERSION, version));
         }
 
         final AsyncApi api = new AsyncApi();
@@ -358,10 +360,9 @@ public class YamlParser {
         return required(key, asOptionalString(key, map));
     }
 
-    private static IllegalStateException wrongTypeError(final String key, final Class<?> expected,
-            final Object result) {
-        return new IllegalStateException(String.format("Key%s is expected to be of type %s (but is %s instead)",
-                key != null ? " '" + key + "'" : "", expected.getSimpleName(), result.getClass().getSimpleName()));
+    private static IllegalStateException wrongTypeError(final String key, final Class<?> expected, final Object result) {
+        return new IllegalStateException(String.format("Key%s is expected to be of type %s (but is %s instead)", key != null ? " '" + key + "'" : "", expected.getSimpleName(),
+                result.getClass().getSimpleName()));
     }
 
     private static IllegalStateException keyMissingError(final String key) {

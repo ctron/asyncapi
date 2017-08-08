@@ -25,7 +25,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import de.dentrassi.asyncapi.parser.YamlParser;
+import de.dentrassi.asyncapi.internal.parser.YamlParser;
 
 public class AsyncApi {
 
@@ -101,14 +101,35 @@ public class AsyncApi {
         this.types = types;
     }
 
+    /**
+     * Load an AsyncAPI specification encoded in YAML
+     *
+     * @param in
+     *            the stream to read from
+     * @return the model
+     */
     public static AsyncApi parseYaml(final InputStream in) {
         return new YamlParser(in).parse();
     }
 
+    /**
+     * Load an AsyncAPI specification encoded in YAML
+     *
+     * @param reader
+     *            the reader to read from
+     * @return the model
+     */
     public static AsyncApi parseYaml(final Reader reader) {
         return new YamlParser(reader).parse();
     }
 
+    /**
+     * Load an AsyncAPI specification encoded in YAML
+     *
+     * @param path
+     *            the file system resource to read from
+     * @return the model
+     */
     public static AsyncApi parseYaml(final Path path) throws IOException {
         try (InputStream in = Files.newInputStream(path)) {
             return new YamlParser(in).parse();

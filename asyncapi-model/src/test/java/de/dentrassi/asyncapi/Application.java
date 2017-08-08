@@ -24,7 +24,7 @@ import java.nio.file.Paths;
 
 import com.google.gson.GsonBuilder;
 
-import de.dentrassi.asyncapi.parser.YamlParser;
+import de.dentrassi.asyncapi.internal.parser.YamlParser;
 
 public class Application {
     public static void main(final String[] args) throws IOException {

@@ -22,7 +22,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import de.dentrassi.asyncapi.AsyncApi;
-import de.dentrassi.asyncapi.parser.YamlParser;
+import de.dentrassi.asyncapi.internal.parser.YamlParser;
 
 public class Application1 {
     public static void main(final String[] args) throws IOException {

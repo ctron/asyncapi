@@ -12,6 +12,7 @@
 
     <artifactId>asyncapi-model</artifactId>
     <name>AsyncAPI :: Model and Parser</name>
+    <description>Tools for loading the AsyncAPI definitions</description>
 
     <dependencies>
 
