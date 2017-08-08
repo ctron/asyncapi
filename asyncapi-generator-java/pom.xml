@@ -7,7 +7,7 @@
     <parent>
         <groupId>de.dentrassi.asyncapi</groupId>
         <artifactId>asyncapi-parent</artifactId>
-        <version>0.0.1</version>
+        <version>0.0.2-SNAPSHOT</version>
     </parent>
 
     <artifactId>asyncapi-generator-java</artifactId>
