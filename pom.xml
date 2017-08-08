@@ -31,8 +31,8 @@
         <connection>scm:git:git://github.com/ctron/asyncapi.git</connection>
         <url>https://github.com/ctron/asyncapi</url>
         <developerConnection>scm:git:git@github.com:ctron/asyncapi.git</developerConnection>
-      <tag>HEAD</tag>
-  </scm>
+        <tag>HEAD</tag>
+    </scm>
 
     <distributionManagement>
         <snapshotRepository>
@@ -70,9 +70,29 @@
     </developers>
 
     <modules>
+        <module>asyncapi</module>
         <module>asyncapi-model</module>
         <module>asyncapi-generator-java</module>
     </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- testing -->
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>4.12</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>1.2.3</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <pluginManagement>
@@ -135,6 +155,14 @@
                     <version>3.6</version>
                 </plugin>
 
+                <!-- code coverage -->
+
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>0.7.9</version>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
@@ -161,6 +189,25 @@
                         <id>attach-javadocs</id>
                         <goals>
                             <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
                         </goals>
                     </execution>
                 </executions>

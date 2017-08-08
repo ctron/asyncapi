@@ -14,24 +14,10 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi.generator.java;
+package de.dentrassi.asyncapi;
 
-import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
-import org.eclipse.jdt.core.dom.AST;
-import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.MethodDeclaration;
-
-public interface TypeBuilder {
-
-    public void createType(TypeInformation type, boolean iface, Consumer<TypeBuilder> consumer);
-
-    public void createEnum(TypeInformation type, Set<String> literals);
-
-    public void createProperty(PropertyInformation property);
-
-    public void createMethod(BiFunction<AST, CompilationUnit, MethodDeclaration> consumer);
-
+public interface Subscriber<T> {
+    public ListenerHandle subscribe(Consumer<T> consumer);
 }

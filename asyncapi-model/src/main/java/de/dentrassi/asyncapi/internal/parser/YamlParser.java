@@ -26,6 +26,7 @@ import static de.dentrassi.asyncapi.internal.parser.Consume.asString;
 
 import java.io.InputStream;
 import java.io.Reader;
+import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,13 +41,13 @@ import java.util.Set;
 import org.yaml.snakeyaml.Yaml;
 
 import de.dentrassi.asyncapi.AsyncApi;
+import de.dentrassi.asyncapi.CoreType;
 import de.dentrassi.asyncapi.EnumType;
 import de.dentrassi.asyncapi.Information;
 import de.dentrassi.asyncapi.Message;
 import de.dentrassi.asyncapi.MessageReference;
 import de.dentrassi.asyncapi.ObjectType;
 import de.dentrassi.asyncapi.Property;
-import de.dentrassi.asyncapi.StringType;
 import de.dentrassi.asyncapi.Topic;
 import de.dentrassi.asyncapi.Type;
 import de.dentrassi.asyncapi.TypeReference;
@@ -176,7 +177,7 @@ public class YamlParser {
             if (map.containsKey("enum")) {
                 return addCommonTypeInfo(parseEnumType(name, map), map);
             }
-            return addCommonTypeInfo(parseStringType(name, map), map);
+            return addCommonTypeInfo(parseCoreType(name, map), map);
         }
         case "object":
             return addCommonTypeInfo(parseObjectType(name, map), map);
@@ -193,12 +194,21 @@ public class YamlParser {
         return type;
     }
 
-    private StringType parseStringType(final String name, final Map<String, ?> map) {
-        final StringType type = new StringType(name);
+    private CoreType parseCoreType(final String name, final Map<String, ?> map) {
 
-        type.setFormat(asOptionalString("format", map).orElse(null));
+        final String format = asOptionalString("format", map).orElse(null);
 
-        return type;
+        if (format == null) {
+            return new CoreType(name, String.class);
+
+        }
+
+        switch (format) {
+        case "date-time":
+            return new CoreType(name, ZonedDateTime.class);
+        default:
+            throw new IllegalStateException(String.format("Unknown data format: " + format));
+        }
     }
 
     private Type parseObjectType(final String name, final Map<String, ?> map) {

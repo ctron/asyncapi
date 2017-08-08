@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -40,7 +41,6 @@ import org.eclipse.jdt.core.dom.FieldAccess;
 import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.Javadoc;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
-import org.eclipse.jdt.core.dom.Modifier;
 import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
 import org.eclipse.jdt.core.dom.PackageDeclaration;
 import org.eclipse.jdt.core.dom.ReturnStatement;
@@ -65,8 +65,7 @@ public class PackageTypeBuilder implements TypeBuilder {
         private final TypeDeclaration td;
         private final Function<String, Type> typeLookup;
 
-        public ClassTypeBuilder(final AST ast, final CompilationUnit cu, final TypeDeclaration td,
-                final Function<String, Type> typeLookup) {
+        public ClassTypeBuilder(final AST ast, final CompilationUnit cu, final TypeDeclaration td, final Function<String, Type> typeLookup) {
             this.ast = ast;
             this.cu = cu;
             this.td = td;
@@ -74,8 +73,16 @@ public class PackageTypeBuilder implements TypeBuilder {
         }
 
         @Override
-        public void createClass(final TypeInformation type, final Consumer<TypeBuilder> consumer) {
-            final TypeDeclaration td = PackageTypeBuilder.createClass(this.ast, this.cu, type);
+        public void createMethod(final BiFunction<AST, CompilationUnit, MethodDeclaration> consumer) {
+            final MethodDeclaration result = consumer.apply(this.ast, this.cu);
+            if (result != null) {
+                this.td.bodyDeclarations().add(result);
+            }
+        }
+
+        @Override
+        public void createType(final TypeInformation type, final boolean iface, final Consumer<TypeBuilder> consumer) {
+            final TypeDeclaration td = PackageTypeBuilder.createType(this.ast, this.cu, iface, type);
             this.td.bodyDeclarations().add(td);
 
             consumer.accept(new ClassTypeBuilder(this.ast, this.cu, td, this.typeLookup));
@@ -102,8 +109,7 @@ public class PackageTypeBuilder implements TypeBuilder {
     private final Path rootPath;
     private final Function<String, Type> typeLookup;
 
-    public PackageTypeBuilder(final Path root, final String packageName, final Charset charset,
-            final Function<String, Type> typeLookup) {
+    public PackageTypeBuilder(final Path root, final String packageName, final Charset charset, final Function<String, Type> typeLookup) {
         this.charset = charset;
         this.packageName = packageName;
         this.rootPath = root;
@@ -111,8 +117,11 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     public static void makeStatic(final BodyDeclaration decl) {
-        final Modifier mod = decl.getAST().newModifier(ModifierKeyword.STATIC_KEYWORD);
-        decl.modifiers().add(mod);
+        decl.modifiers().add(decl.getAST().newModifier(ModifierKeyword.STATIC_KEYWORD));
+    }
+
+    public static void makePublic(final BodyDeclaration decl) {
+        decl.modifiers().add(decl.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
     }
 
     public static String asTypeName(final String name) {
@@ -135,8 +144,8 @@ public class PackageTypeBuilder implements TypeBuilder {
         createCompilationUnit(this.rootPath, this.packageName, name, this.charset, consumer);
     }
 
-    public static void createCompilationUnit(final Path rootPath, final String packageName, final String name,
-            final Charset charset, final BiConsumer<AST, CompilationUnit> consumer) {
+    public static void createCompilationUnit(final Path rootPath, final String packageName, final String name, final Charset charset,
+            final BiConsumer<AST, CompilationUnit> consumer) {
         final AST ast = AST.newAST(AST.JLS8);
 
         final CompilationUnit cu = ast.newCompilationUnit();
@@ -162,9 +171,9 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     @Override
-    public void createClass(final TypeInformation type, final Consumer<TypeBuilder> consumer) {
+    public void createType(final TypeInformation type, final boolean iface, final Consumer<TypeBuilder> consumer) {
         createNew(asTypeName(type.getName()), (ast, cu) -> {
-            final TypeDeclaration td = createClass(ast, cu, type);
+            final TypeDeclaration td = createType(ast, cu, iface, type);
             cu.types().add(td);
             consumer.accept(new ClassTypeBuilder(ast, cu, td, this.typeLookup));
         });
@@ -183,8 +192,14 @@ public class PackageTypeBuilder implements TypeBuilder {
         throw new IllegalStateException("Unable to create property on package level");
     }
 
-    private static TypeDeclaration createClass(final AST ast, final CompilationUnit cu, final TypeInformation type) {
+    @Override
+    public void createMethod(final BiFunction<AST, CompilationUnit, MethodDeclaration> consumer) {
+        throw new IllegalStateException("Unable to create method on package level");
+    }
+
+    private static TypeDeclaration createType(final AST ast, final CompilationUnit cu, final boolean iface, final TypeInformation type) {
         final TypeDeclaration td = ast.newTypeDeclaration();
+        td.setInterface(iface);
 
         addJavadoc(ast, type, td);
 
@@ -194,8 +209,7 @@ public class PackageTypeBuilder implements TypeBuilder {
         return td;
     }
 
-    private static EnumDeclaration createEnum(final AST ast, final CompilationUnit cu, final TypeInformation type,
-            final Set<String> literals) {
+    private static EnumDeclaration createEnum(final AST ast, final CompilationUnit cu, final TypeInformation type, final Set<String> literals) {
         final EnumDeclaration ed = ast.newEnumDeclaration();
 
         addJavadoc(ast, type, ed);
@@ -213,10 +227,6 @@ public class PackageTypeBuilder implements TypeBuilder {
         return ed;
     }
 
-    private static void makePublic(final BodyDeclaration decl) {
-        decl.modifiers().add(decl.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
-    }
-
     public static Type lookupType(final TypeReference type, final Function<String, Type> typeLookup) {
         if (type instanceof Type) {
             return (Type) type;
@@ -225,8 +235,7 @@ public class PackageTypeBuilder implements TypeBuilder {
         return typeLookup.apply(type.getName());
     }
 
-    public static void createProperty(final AST ast, final TypeDeclaration td, final PropertyInformation property,
-            final Function<String, Type> typeLookup) {
+    public static void createProperty(final AST ast, final TypeDeclaration td, final PropertyInformation property, final Function<String, Type> typeLookup) {
 
         final String name = asPropertyName(property.getName());
 
@@ -294,8 +303,7 @@ public class PackageTypeBuilder implements TypeBuilder {
 
     }
 
-    private static org.eclipse.jdt.core.dom.Type createPropertyType(final AST ast, final PropertyInformation property,
-            final Function<String, Type> typeLookup) {
+    private static org.eclipse.jdt.core.dom.Type createPropertyType(final AST ast, final PropertyInformation property, final Function<String, Type> typeLookup) {
 
         return ast.newSimpleType(ast.newName(property.getTypeName()));
     }

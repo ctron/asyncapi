@@ -1,4 +1,3 @@
-package de.dentrassi.asyncapi.generator.java;
 /*
  * Copyright (C) 2017 Jens Reimann <jreimann@redhat.com>
  *
@@ -14,6 +13,8 @@ package de.dentrassi.asyncapi.generator.java;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package de.dentrassi.asyncapi.generator.java;
 
 import java.io.InputStream;
 import java.nio.file.Files;

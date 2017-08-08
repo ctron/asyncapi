@@ -16,26 +16,17 @@
 
 package de.dentrassi.asyncapi;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
+public class CoreType extends Type {
 
-public class StringType extends Type {
+    private final Class<?> javaType;
 
-    private String format;
-
-    public StringType(final String name) {
+    public CoreType(final String name, final Class<?> javaType) {
         super(name);
+        this.javaType = javaType;
     }
 
-    public String getFormat() {
-        return this.format;
+    public Class<?> getJavaType() {
+        return this.javaType;
     }
 
-    public void setFormat(final String format) {
-        this.format = format;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this).append("format", this.format).toString();
-    }
 }
