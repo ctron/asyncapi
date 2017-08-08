@@ -11,7 +11,7 @@
     </parent>
 
     <artifactId>asyncapi-model</artifactId>
-    <name>Async API model and parser</name>
+    <name>AsyncAPI :: Model and Parser</name>
 
     <dependencies>
 

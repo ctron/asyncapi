@@ -12,12 +12,12 @@
     </parent>
 
     <artifactId>asyncapi-generator-java</artifactId>
-    <name>AsyncAPI Java generator</name>
+    <name>AsyncAPI :: Java generator</name>
 
     <dependencies>
         <dependency>
             <groupId>de.dentrassi.asyncapi</groupId>
-            <artifactId>asyncapi</artifactId>
+            <artifactId>asyncapi-model</artifactId>
             <version>${project.version}</version>
         </dependency>
 
