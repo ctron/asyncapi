@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TopicInformation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">AsyncAPI :: Java generator</a> &gt; <a href="index.source.html" class="el_package">de.dentrassi.asyncapi.generator.java</a> &gt; <span class="el_source">TopicInformation.java</span></div><h1>TopicInformation.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (C) 2017 Jens Reimann &lt;jreimann@redhat.com&gt;
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.dentrassi.asyncapi.generator.java;
+
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Pattern;
+
+public class TopicInformation {
+
+<span class="fc" id="L28">    private static final Pattern VERSION_SEG = Pattern.compile(&quot;[0-9]+&quot;);</span>
+
+<span class="fc" id="L30">    public static enum Status {</span>
+<span class="fc" id="L31">        QUEUED, SUCCEED, FAILED, DONE;</span>
+    }
+
+    private final String service;
+    private final String version;
+    private final String type;
+    private final List&lt;String&gt; resources;
+    private final String action;
+    private final Optional&lt;Status&gt; status;
+
+<span class="fc" id="L41">    public TopicInformation(final String service, final String version, final String type, final List&lt;String&gt; resources, final String action, final Optional&lt;Status&gt; status) {</span>
+<span class="fc" id="L42">        this.service = service;</span>
+<span class="fc" id="L43">        this.version = version;</span>
+<span class="fc" id="L44">        this.type = type;</span>
+<span class="fc" id="L45">        this.resources = resources;</span>
+<span class="fc" id="L46">        this.action = action;</span>
+<span class="fc" id="L47">        this.status = status;</span>
+<span class="fc" id="L48">    }</span>
+
+    public String getService() {
+<span class="fc" id="L51">        return this.service;</span>
+    }
+
+    public String getType() {
+<span class="fc" id="L55">        return this.type;</span>
+    }
+
+    public String getVersion() {
+<span class="fc" id="L59">        return this.version;</span>
+    }
+
+    public List&lt;String&gt; getResources() {
+<span class="fc" id="L63">        return this.resources;</span>
+    }
+
+    public String getAction() {
+<span class="fc" id="L67">        return this.action;</span>
+    }
+
+    public Optional&lt;Status&gt; getStatus() {
+<span class="fc" id="L71">        return this.status;</span>
+    }
+
+    public static TopicInformation fromString(final String topic) {
+<span class="fc" id="L75">        Objects.requireNonNull(topic);</span>
+
+        // split
+
+<span class="fc" id="L79">        final LinkedList&lt;String&gt; toks = new LinkedList&lt;&gt;(Arrays.asList(topic.split(&quot;\\.&quot;)));</span>
+
+        // assign service
+
+<span class="fc" id="L83">        final String service = toks.pollFirst();</span>
+
+        // assign version
+
+<span class="fc" id="L87">        final LinkedList&lt;String&gt; version = new LinkedList&lt;&gt;();</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        while (isVersionSegment(toks.peekFirst())) {</span>
+<span class="fc" id="L89">            version.add(toks.pollFirst());</span>
+        }
+
+        // assign optional status
+
+        final Optional&lt;Status&gt; status;
+
+<span class="fc" id="L96">        final String type = toks.pollFirst();</span>
+<span class="fc bfc" id="L97" title="All 4 branches covered.">        if (&quot;event&quot;.equals(type) &amp;&amp; toks.size() &gt; 2) {</span>
+<span class="fc" id="L98">            final String last = toks.peekLast();</span>
+<span class="fc" id="L99">            Status statusValue = null;</span>
+            try {
+<span class="fc" id="L101">                statusValue = Status.valueOf(last.toUpperCase());</span>
+<span class="fc" id="L102">                toks.pollLast(); // consume</span>
+<span class="fc" id="L103">            } catch (final IllegalArgumentException e) {</span>
+<span class="fc" id="L104">            }</span>
+<span class="fc" id="L105">            status = Optional.ofNullable(statusValue);</span>
+<span class="fc" id="L106">        } else {</span>
+<span class="fc" id="L107">            status = Optional.empty();</span>
+        }
+
+        // assign action
+
+<span class="fc" id="L112">        final String action = toks.pollLast();</span>
+
+        // assign resources
+
+<span class="fc" id="L116">        final LinkedList&lt;String&gt; resources = toks;</span>
+
+        // validate
+
+<span class="pc bpc" id="L120" title="1 of 4 branches missed.">        if (service == null || service.isEmpty()) {</span>
+<span class="fc" id="L121">            throw new IllegalArgumentException(&quot;Wrong topic syntax&quot;);</span>
+        }
+<span class="fc bfc" id="L123" title="All 2 branches covered.">        if (version.isEmpty()) {</span>
+<span class="fc" id="L124">            throw new IllegalArgumentException(&quot;Wrong topic syntax&quot;);</span>
+        }
+<span class="pc bpc" id="L126" title="1 of 4 branches missed.">        if (type == null || type.isEmpty()) {</span>
+<span class="fc" id="L127">            throw new IllegalArgumentException(&quot;Wrong topic syntax&quot;);</span>
+        }
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        if (resources.isEmpty()) {</span>
+<span class="fc" id="L130">            throw new IllegalArgumentException(&quot;Wrong topic syntax&quot;);</span>
+        }
+
+        // return result
+
+<span class="fc" id="L135">        return new TopicInformation(service, String.join(&quot;.&quot;, version), type, resources, action, status);</span>
+    }
+
+    private static boolean isVersionSegment(final String string) {
+<span class="fc bfc" id="L139" title="All 2 branches covered.">        if (string == null) {</span>
+<span class="fc" id="L140">            return false;</span>
+        }
+<span class="fc" id="L142">        return VERSION_SEG.matcher(string).matches();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

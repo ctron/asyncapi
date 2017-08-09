@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PackageTypeBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">AsyncAPI :: Java generator</a> &gt; <a href="index.source.html" class="el_package">de.dentrassi.asyncapi.generator.java</a> &gt; <span class="el_source">PackageTypeBuilder.java</span></div><h1>PackageTypeBuilder.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (C) 2017 Jens Reimann &lt;jreimann@redhat.com&gt;
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.dentrassi.asyncapi.generator.java;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.Writer;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.Assignment;
+import org.eclipse.jdt.core.dom.Assignment.Operator;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.BodyDeclaration;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
+import org.eclipse.jdt.core.dom.EnumDeclaration;
+import org.eclipse.jdt.core.dom.ExpressionStatement;
+import org.eclipse.jdt.core.dom.FieldAccess;
+import org.eclipse.jdt.core.dom.FieldDeclaration;
+import org.eclipse.jdt.core.dom.Javadoc;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
+import org.eclipse.jdt.core.dom.PackageDeclaration;
+import org.eclipse.jdt.core.dom.ReturnStatement;
+import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
+import org.eclipse.jdt.core.dom.TagElement;
+import org.eclipse.jdt.core.dom.TextElement;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+
+import com.google.common.base.CaseFormat;
+
+import de.dentrassi.asyncapi.Type;
+import de.dentrassi.asyncapi.TypeReference;
+
+@SuppressWarnings(&quot;unchecked&quot;)
+public class PackageTypeBuilder implements TypeBuilder {
+
+    private static class ClassTypeBuilder implements TypeBuilder {
+
+        private final AST ast;
+        private final CompilationUnit cu;
+        private final TypeDeclaration td;
+        private final Function&lt;String, Type&gt; typeLookup;
+
+<span class="nc" id="L68">        public ClassTypeBuilder(final AST ast, final CompilationUnit cu, final TypeDeclaration td, final Function&lt;String, Type&gt; typeLookup) {</span>
+<span class="nc" id="L69">            this.ast = ast;</span>
+<span class="nc" id="L70">            this.cu = cu;</span>
+<span class="nc" id="L71">            this.td = td;</span>
+<span class="nc" id="L72">            this.typeLookup = typeLookup;</span>
+<span class="nc" id="L73">        }</span>
+
+        @Override
+        public void createMethod(final BiFunction&lt;AST, CompilationUnit, MethodDeclaration&gt; consumer) {
+<span class="nc" id="L77">            final MethodDeclaration result = consumer.apply(this.ast, this.cu);</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">            if (result != null) {</span>
+<span class="nc" id="L79">                this.td.bodyDeclarations().add(result);</span>
+            }
+<span class="nc" id="L81">        }</span>
+
+        @Override
+        public void createType(final TypeInformation type, final boolean iface, final Consumer&lt;TypeBuilder&gt; consumer) {
+<span class="nc" id="L85">            final TypeDeclaration td = PackageTypeBuilder.createType(this.ast, this.cu, iface, type);</span>
+<span class="nc" id="L86">            this.td.bodyDeclarations().add(td);</span>
+
+<span class="nc" id="L88">            consumer.accept(new ClassTypeBuilder(this.ast, this.cu, td, this.typeLookup));</span>
+
+<span class="nc" id="L90">            makeStatic(td);</span>
+<span class="nc" id="L91">        }</span>
+
+        @Override
+        public void createEnum(final TypeInformation type, final Set&lt;String&gt; literals) {
+<span class="nc" id="L95">            final EnumDeclaration ed = PackageTypeBuilder.createEnum(this.ast, this.cu, type, literals);</span>
+<span class="nc" id="L96">            this.td.bodyDeclarations().add(ed);</span>
+<span class="nc" id="L97">            makeStatic(ed);</span>
+<span class="nc" id="L98">        }</span>
+
+        @Override
+        public void createProperty(final PropertyInformation property) {
+<span class="nc" id="L102">            PackageTypeBuilder.createProperty(this.ast, this.td, property, this.typeLookup);</span>
+<span class="nc" id="L103">        }</span>
+
+    }
+
+    private final Charset charset;
+    private final String packageName;
+    private final Path rootPath;
+    private final Function&lt;String, Type&gt; typeLookup;
+
+<span class="nc" id="L112">    public PackageTypeBuilder(final Path root, final String packageName, final Charset charset, final Function&lt;String, Type&gt; typeLookup) {</span>
+<span class="nc" id="L113">        this.charset = charset;</span>
+<span class="nc" id="L114">        this.packageName = packageName;</span>
+<span class="nc" id="L115">        this.rootPath = root;</span>
+<span class="nc" id="L116">        this.typeLookup = typeLookup;</span>
+<span class="nc" id="L117">    }</span>
+
+    public static void makeStatic(final BodyDeclaration decl) {
+<span class="nc" id="L120">        decl.modifiers().add(decl.getAST().newModifier(ModifierKeyword.STATIC_KEYWORD));</span>
+<span class="nc" id="L121">    }</span>
+
+    public static void makePublic(final BodyDeclaration decl) {
+<span class="nc" id="L124">        decl.modifiers().add(decl.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));</span>
+<span class="nc" id="L125">    }</span>
+
+    public static String asTypeName(final String name) {
+<span class="nc" id="L128">        return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, name);</span>
+    }
+
+    private static String asConstantName(final String name) {
+<span class="nc" id="L132">        return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, name);</span>
+    }
+
+    public static String asPropertyName(final String name) {
+<span class="nc" id="L136">        return CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, name);</span>
+    }
+
+    private static String asMethodPropertyName(final String prefix, final String name) {
+<span class="nc" id="L140">        return prefix + CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name);</span>
+    }
+
+    protected void createNew(final String name, final BiConsumer&lt;AST, CompilationUnit&gt; consumer) {
+<span class="nc" id="L144">        createCompilationUnit(this.rootPath, this.packageName, name, this.charset, consumer);</span>
+<span class="nc" id="L145">    }</span>
+
+    public static void createCompilationUnit(final Path rootPath, final String packageName, final String name, final Charset charset,
+            final BiConsumer&lt;AST, CompilationUnit&gt; consumer) {
+<span class="nc" id="L149">        final AST ast = AST.newAST(AST.JLS8);</span>
+
+<span class="nc" id="L151">        final CompilationUnit cu = ast.newCompilationUnit();</span>
+
+<span class="nc" id="L153">        final PackageDeclaration pkg = ast.newPackageDeclaration();</span>
+<span class="nc" id="L154">        pkg.setName(ast.newName(packageName));</span>
+<span class="nc" id="L155">        cu.setPackage(pkg);</span>
+
+<span class="nc" id="L157">        final Path path = rootPath.resolve(packageName.replace(&quot;.&quot;, File.separator)).resolve(name + &quot;.java&quot;);</span>
+
+<span class="nc" id="L159">        consumer.accept(ast, cu);</span>
+
+        try {
+<span class="nc" id="L162">            Files.createDirectories(path.getParent());</span>
+
+<span class="nc" id="L164">            try (Writer writer = Files.newBufferedWriter(path, charset)) {</span>
+<span class="nc" id="L165">                writer.append(cu.toString());</span>
+<span class="nc bnc" id="L166" title="All 8 branches missed.">            }</span>
+<span class="nc" id="L167">        } catch (final IOException e) {</span>
+<span class="nc" id="L168">            throw new RuntimeException(e);</span>
+<span class="nc" id="L169">        }</span>
+
+<span class="nc" id="L171">    }</span>
+
+    @Override
+    public void createType(final TypeInformation type, final boolean iface, final Consumer&lt;TypeBuilder&gt; consumer) {
+<span class="nc" id="L175">        createNew(asTypeName(type.getName()), (ast, cu) -&gt; {</span>
+<span class="nc" id="L176">            final TypeDeclaration td = createType(ast, cu, iface, type);</span>
+<span class="nc" id="L177">            cu.types().add(td);</span>
+<span class="nc" id="L178">            consumer.accept(new ClassTypeBuilder(ast, cu, td, this.typeLookup));</span>
+<span class="nc" id="L179">        });</span>
+<span class="nc" id="L180">    }</span>
+
+    @Override
+    public void createEnum(final TypeInformation type, final Set&lt;String&gt; literals) {
+<span class="nc" id="L184">        createNew(asTypeName(type.getName()), (ast, cu) -&gt; {</span>
+<span class="nc" id="L185">            final EnumDeclaration ed = createEnum(ast, cu, type, literals);</span>
+<span class="nc" id="L186">            cu.types().add(ed);</span>
+<span class="nc" id="L187">        });</span>
+<span class="nc" id="L188">    }</span>
+
+    @Override
+    public void createProperty(final PropertyInformation property) {
+<span class="nc" id="L192">        throw new IllegalStateException(&quot;Unable to create property on package level&quot;);</span>
+    }
+
+    @Override
+    public void createMethod(final BiFunction&lt;AST, CompilationUnit, MethodDeclaration&gt; consumer) {
+<span class="nc" id="L197">        throw new IllegalStateException(&quot;Unable to create method on package level&quot;);</span>
+    }
+
+    private static TypeDeclaration createType(final AST ast, final CompilationUnit cu, final boolean iface, final TypeInformation type) {
+<span class="nc" id="L201">        final TypeDeclaration td = ast.newTypeDeclaration();</span>
+<span class="nc" id="L202">        td.setInterface(iface);</span>
+
+<span class="nc" id="L204">        addJavadoc(ast, type, td);</span>
+
+<span class="nc" id="L206">        td.setName(ast.newSimpleName(asTypeName(type.getName())));</span>
+<span class="nc" id="L207">        makePublic(td);</span>
+
+<span class="nc" id="L209">        return td;</span>
+    }
+
+    private static EnumDeclaration createEnum(final AST ast, final CompilationUnit cu, final TypeInformation type, final Set&lt;String&gt; literals) {
+<span class="nc" id="L213">        final EnumDeclaration ed = ast.newEnumDeclaration();</span>
+
+<span class="nc" id="L215">        addJavadoc(ast, type, ed);</span>
+
+<span class="nc" id="L217">        ed.setName(ast.newSimpleName(asTypeName(type.getName())));</span>
+<span class="nc" id="L218">        makePublic(ed);</span>
+
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        for (final String literal : literals) {</span>
+<span class="nc" id="L221">            final EnumConstantDeclaration l = ast.newEnumConstantDeclaration();</span>
+<span class="nc" id="L222">            l.setName(ast.newSimpleName(asConstantName(literal)));</span>
+<span class="nc" id="L223">            ed.enumConstants().add(l);</span>
+
+<span class="nc" id="L225">        }</span>
+
+<span class="nc" id="L227">        return ed;</span>
+    }
+
+    public static Type lookupType(final TypeReference type, final Function&lt;String, Type&gt; typeLookup) {
+<span class="nc bnc" id="L231" title="All 2 branches missed.">        if (type instanceof Type) {</span>
+<span class="nc" id="L232">            return (Type) type;</span>
+        }
+
+<span class="nc" id="L235">        return typeLookup.apply(type.getName());</span>
+    }
+
+    public static void createProperty(final AST ast, final TypeDeclaration td, final PropertyInformation property, final Function&lt;String, Type&gt; typeLookup) {
+
+<span class="nc" id="L240">        final String name = asPropertyName(property.getName());</span>
+
+<span class="nc" id="L242">        final VariableDeclarationFragment fragment = ast.newVariableDeclarationFragment();</span>
+<span class="nc" id="L243">        fragment.setName(ast.newSimpleName(name));</span>
+
+<span class="nc" id="L245">        final FieldDeclaration fd = ast.newFieldDeclaration(fragment);</span>
+<span class="nc" id="L246">        fd.modifiers().add(ast.newModifier(ModifierKeyword.PRIVATE_KEYWORD));</span>
+<span class="nc" id="L247">        fd.setType(createPropertyType(ast, property, typeLookup));</span>
+
+<span class="nc" id="L249">        fd.setJavadoc(createJavadoc(ast, property.getSummary(), property.getDescription()));</span>
+
+<span class="nc" id="L251">        td.bodyDeclarations().add(fd);</span>
+
+        // setter
+
+<span class="nc" id="L255">        final MethodDeclaration setter = ast.newMethodDeclaration();</span>
+<span class="nc" id="L256">        td.bodyDeclarations().add(setter);</span>
+<span class="nc" id="L257">        makePublic(setter);</span>
+
+<span class="nc" id="L259">        setter.setName(ast.newSimpleName(asMethodPropertyName(&quot;set&quot;, name)));</span>
+<span class="nc" id="L260">        final SingleVariableDeclaration arg = ast.newSingleVariableDeclaration();</span>
+<span class="nc" id="L261">        arg.setName(ast.newSimpleName(name));</span>
+<span class="nc" id="L262">        arg.setType(createPropertyType(ast, property, typeLookup));</span>
+<span class="nc" id="L263">        arg.modifiers().add(ast.newModifier(ModifierKeyword.FINAL_KEYWORD));</span>
+<span class="nc" id="L264">        setter.parameters().add(arg);</span>
+
+        {
+<span class="nc" id="L267">            final Block body = ast.newBlock();</span>
+
+<span class="nc" id="L269">            final FieldAccess fa = ast.newFieldAccess();</span>
+<span class="nc" id="L270">            fa.setName(ast.newSimpleName(name));</span>
+<span class="nc" id="L271">            fa.setExpression(ast.newThisExpression());</span>
+
+<span class="nc" id="L273">            final Assignment assign = ast.newAssignment();</span>
+<span class="nc" id="L274">            assign.setLeftHandSide(fa);</span>
+<span class="nc" id="L275">            assign.setOperator(Operator.ASSIGN);</span>
+<span class="nc" id="L276">            assign.setRightHandSide(ast.newSimpleName(name));</span>
+
+<span class="nc" id="L278">            final ExpressionStatement expStmt = ast.newExpressionStatement(assign);</span>
+
+<span class="nc" id="L280">            body.statements().add(expStmt);</span>
+<span class="nc" id="L281">            setter.setBody(body);</span>
+        }
+
+        // getter
+
+<span class="nc" id="L286">        final MethodDeclaration getter = ast.newMethodDeclaration();</span>
+<span class="nc" id="L287">        td.bodyDeclarations().add(getter);</span>
+<span class="nc" id="L288">        makePublic(getter);</span>
+
+<span class="nc" id="L290">        getter.setName(ast.newSimpleName(asMethodPropertyName(&quot;get&quot;, name)));</span>
+<span class="nc" id="L291">        getter.setReturnType2(createPropertyType(ast, property, typeLookup));</span>
+
+        {
+<span class="nc" id="L294">            final Block body = ast.newBlock();</span>
+<span class="nc" id="L295">            final ReturnStatement retStmt = ast.newReturnStatement();</span>
+<span class="nc" id="L296">            final FieldAccess fa = ast.newFieldAccess();</span>
+<span class="nc" id="L297">            fa.setName(ast.newSimpleName(name));</span>
+<span class="nc" id="L298">            fa.setExpression(ast.newThisExpression());</span>
+<span class="nc" id="L299">            retStmt.setExpression(fa);</span>
+<span class="nc" id="L300">            body.statements().add(retStmt);</span>
+<span class="nc" id="L301">            getter.setBody(body);</span>
+        }
+
+<span class="nc" id="L304">    }</span>
+
+    private static org.eclipse.jdt.core.dom.Type createPropertyType(final AST ast, final PropertyInformation property, final Function&lt;String, Type&gt; typeLookup) {
+
+<span class="nc" id="L308">        return ast.newSimpleType(ast.newName(property.getTypeName()));</span>
+    }
+
+    private static void addJavadoc(final AST ast, final TypeInformation type, final BodyDeclaration bd) {
+<span class="nc" id="L312">        bd.setJavadoc(createJavadoc(ast, type.getSummary(), type.getDescription()));</span>
+<span class="nc" id="L313">    }</span>
+
+    private static Javadoc createJavadoc(final AST ast, final String title, final String description) {
+<span class="nc" id="L316">        final Javadoc doc = ast.newJavadoc();</span>
+
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        if (title != null) {</span>
+<span class="nc" id="L319">            final TagElement tag = ast.newTagElement();</span>
+<span class="nc" id="L320">            tag.fragments().add(newText(ast, title));</span>
+<span class="nc" id="L321">            doc.tags().add(tag);</span>
+        }
+
+<span class="nc bnc" id="L324" title="All 2 branches missed.">        if (description != null) {</span>
+<span class="nc" id="L325">            final TagElement tag = ast.newTagElement();</span>
+<span class="nc" id="L326">            tag.fragments().add(newText(ast, &quot;&lt;p&gt;&quot; + description + &quot;&lt;/p&gt;&quot;));</span>
+<span class="nc" id="L327">            doc.tags().add(tag);</span>
+        }
+
+<span class="nc" id="L330">        return doc;</span>
+    }
+
+    public static Object newText(final AST ast, final String text) {
+<span class="nc" id="L334">        final TextElement element = ast.newTextElement();</span>
+<span class="nc" id="L335">        element.setText(text);</span>
+<span class="nc" id="L336">        return element;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>
