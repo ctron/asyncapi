@@ -16,6 +16,8 @@
 
 package de.dentrassi.asyncapi;
 
+import java.util.concurrent.CompletionStage;
+
 public interface Publisher<T> {
-    public void publish(T message);
+    public CompletionStage<?> publish(T message);
 }

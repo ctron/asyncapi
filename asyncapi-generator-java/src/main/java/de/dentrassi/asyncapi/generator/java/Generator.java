@@ -143,36 +143,14 @@ public class Generator {
 
                             // return type
 
-                            final SimpleType eventType = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.Topic"));
-
-                            final ParameterizedType type = ast.newParameterizedType(eventType);
-
-                            final org.eclipse.jdt.core.dom.Type pub;
-                            final org.eclipse.jdt.core.dom.Type sub;
-
-                            if (topic.getPublish() == null) {
-                                pub = ast.newWildcardType();
-                            } else {
-                                pub = ast.newSimpleType(ast.newName(messageTypeName(topic.getPublish())));
-                            }
-
-                            if (topic.getSubscribe() == null) {
-                                sub = ast.newWildcardType();
-                            } else {
-                                sub = ast.newSimpleType(ast.newName(messageTypeName(topic.getSubscribe())));
-                            }
-
-                            type.typeArguments().add(pub);
-                            type.typeArguments().add(sub);
-
                             // set return type
 
-                            md.setReturnType2(type);
+                            md.setReturnType2(evalEventMethodType(ast, topic));
 
                             // assign annotation
 
                             final NormalAnnotation an = ast.newNormalAnnotation();
-                            an.setTypeName(ast.newName("de.dentrassi.asyncapi.TopicMethod"));
+                            an.setTypeName(ast.newName("de.dentrassi.asyncapi.Topic"));
                             an.values().add(newKeyValueString(ast, "name", topic.getName()));
                             if (topic.getPublish() != null) {
                                 an.values().add(newKeyValueClass(ast, "publish", messageTypeName(topic.getPublish())));
@@ -198,6 +176,38 @@ public class Generator {
             }
 
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private ParameterizedType evalEventMethodType(final AST ast, final Topic topic) {
+
+        final MessageReference pubMsg = topic.getPublish();
+        final MessageReference subMsg = topic.getSubscribe();
+
+        if (pubMsg == null && subMsg == null) {
+            return null;
+        }
+
+        final SimpleType eventType;
+
+        if (pubMsg != null && subMsg != null) {
+            eventType = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.PubSub"));
+        } else if (pubMsg != null) {
+            eventType = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.Publisher"));
+        } else {
+            eventType = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.Subscriber"));
+        }
+
+        final ParameterizedType type = ast.newParameterizedType(eventType);
+
+        if (pubMsg != null) {
+            type.typeArguments().add(ast.newSimpleType(ast.newName(messageTypeName(pubMsg))));
+        }
+        if (subMsg != null) {
+            type.typeArguments().add(ast.newSimpleType(ast.newName(messageTypeName(subMsg))));
+        }
+
+        return type;
     }
 
     private static MemberValuePair newKeyValueClass(final AST ast, final String key, final String typeName) {

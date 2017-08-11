@@ -16,10 +16,6 @@
 
 package de.dentrassi.asyncapi;
 
-public @interface TopicMethod {
-    public String name();
+public interface PubSub<P, S> extends Publisher<P>, Subscriber<S> {
 
-    public Class<?> publish() default Void.class;
-
-    public Class<?> subscribe() default Void.class;
 }

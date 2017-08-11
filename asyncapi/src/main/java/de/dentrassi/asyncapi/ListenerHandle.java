@@ -16,6 +16,8 @@
 
 package de.dentrassi.asyncapi;
 
-public interface ListenerHandle extends AutoCloseable {
+import java.util.concurrent.CompletionStage;
+
+public interface ListenerHandle extends AutoCloseable, CompletionStage<Void> {
 
 }
