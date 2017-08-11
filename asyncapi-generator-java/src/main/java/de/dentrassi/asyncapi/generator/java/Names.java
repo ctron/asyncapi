@@ -18,6 +18,8 @@ package de.dentrassi.asyncapi.generator.java;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public final class Names {
     private Names() {
@@ -34,6 +36,18 @@ public final class Names {
     }
 
     public static String toCamelCase(final String text, final boolean firstUpper) {
+        return toFormat(text, words -> joinCamel(firstUpper, words));
+    }
+
+    public static String toLowerDash(final String text) {
+        return toFormat(text, words -> joinDelimiter(words, String::toLowerCase, "-"));
+    }
+
+    public static String toUpperUnderscore(final String text) {
+        return toFormat(text, words -> joinDelimiter(words, String::toUpperCase, "_"));
+    }
+
+    public static String toFormat(final String text, final Function<List<String>, String> target) {
         if (text == null) {
             return null;
         }
@@ -74,8 +88,20 @@ public final class Names {
             words.add(sb.toString());
         }
 
+        return target.apply(words);
+    }
+
+    private static String joinDelimiter(final List<String> words, Function<String, String> conversion, final String delimiter) {
+        if (conversion == null) {
+            conversion = str -> str;
+        }
+
+        return words.stream().map(conversion).collect(Collectors.joining(delimiter));
+    }
+
+    private static String joinCamel(final boolean firstUpper, final List<String> words) {
         CharMapper mapper = firstUpper ? Character::toUpperCase : Character::toLowerCase;
-        final StringBuilder result = new StringBuilder(len);
+        final StringBuilder result = new StringBuilder();
         for (final String word : words) {
 
             final int wlen = word.length();

@@ -50,8 +50,6 @@ import org.eclipse.jdt.core.dom.TextElement;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
-import com.google.common.base.CaseFormat;
-
 import de.dentrassi.asyncapi.Type;
 import de.dentrassi.asyncapi.TypeReference;
 
@@ -129,7 +127,7 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     private static String asConstantName(final String name) {
-        return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, name);
+        return Names.toUpperUnderscore(name);
     }
 
     public static String asPropertyName(final String name) {

@@ -17,6 +17,8 @@
 package de.dentrassi.asyncapi.generator.java;
 
 import static de.dentrassi.asyncapi.generator.java.Names.toCamelCase;
+import static de.dentrassi.asyncapi.generator.java.Names.toLowerDash;
+import static de.dentrassi.asyncapi.generator.java.Names.toUpperUnderscore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -68,5 +70,28 @@ public class NamesTest {
     @Test
     public void testMore3() {
         assertEquals("FooBarBaz", toCamelCase("foo-bar-baz", true));
+    }
+
+    @Test
+    public void testAll1() {
+        assertAll("FOO_BAR_BAZ", "fooBarBaz", "FooBarBaz", "foo-bar-baz", "FOO_BAR_BAZ");
+    }
+
+    @Test
+    public void testAll2() {
+        assertAll("FooBarBaz", "fooBarBaz", "FooBarBaz", "foo-bar-baz", "FOO_BAR_BAZ");
+    }
+
+    @Test
+    public void testAll3() {
+        assertAll("foo-bar-baz", "fooBarBaz", "FooBarBaz", "foo-bar-baz", "FOO_BAR_BAZ");
+    }
+
+    public static void assertAll(final String text, final String camelLower, final String camelUpper, final String lowerDash, final String upperUnderscore) {
+        assertEquals(camelLower, toCamelCase(text, false));
+        assertEquals(camelUpper, toCamelCase(text, true));
+
+        assertEquals(lowerDash, toLowerDash(text));
+        assertEquals(upperUnderscore, toUpperUnderscore(text));
     }
 }
