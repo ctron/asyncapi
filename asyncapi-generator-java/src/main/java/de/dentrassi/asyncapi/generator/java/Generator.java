@@ -291,7 +291,7 @@ public class Generator {
     }
 
     private void generateMessages() {
-        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName("messages"), StandardCharsets.UTF_8, this::lookupType);
+        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName("messages"), this.characterSet, this::lookupType);
 
         this.api.getMessages().forEach(message -> {
             generateMessage(builder, message);
@@ -333,7 +333,7 @@ public class Generator {
 
     private void generateTypes() {
 
-        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName("types"), StandardCharsets.UTF_8, typeName -> {
+        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName("types"), this.characterSet, typeName -> {
             return this.api.getTypes().stream().filter(type -> type.getName().equals(typeName)).findFirst()
                     .orElseThrow(() -> new IllegalStateException(String.format("Unknown type '%s' referenced", typeName)));
         });
