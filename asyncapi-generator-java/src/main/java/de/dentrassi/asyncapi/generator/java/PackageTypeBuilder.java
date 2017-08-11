@@ -125,7 +125,7 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     public static String asTypeName(final String name) {
-        return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, name);
+        return Names.toCamelCase(name, true);
     }
 
     private static String asConstantName(final String name) {
@@ -133,11 +133,11 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     public static String asPropertyName(final String name) {
-        return CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, name);
+        return Names.toCamelCase(name, false);
     }
 
     private static String asMethodPropertyName(final String prefix, final String name) {
-        return prefix + CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name);
+        return prefix + Names.toCamelCase(name, true);
     }
 
     protected void createNew(final String name, final BiConsumer<AST, CompilationUnit> consumer) {
