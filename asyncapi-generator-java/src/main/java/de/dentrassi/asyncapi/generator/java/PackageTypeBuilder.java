@@ -246,7 +246,10 @@ public class PackageTypeBuilder implements TypeBuilder {
         fd.modifiers().add(ast.newModifier(ModifierKeyword.PRIVATE_KEYWORD));
         fd.setType(createPropertyType(ast, property, typeLookup));
 
-        fd.setJavadoc(createJavadoc(ast, property.getSummary(), property.getDescription()));
+        final Javadoc doc = createJavadoc(ast, property.getSummary(), property.getDescription());
+        if (doc != null) {
+            fd.setJavadoc(doc);
+        }
 
         td.bodyDeclarations().add(fd);
 
@@ -309,10 +312,21 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     private static void addJavadoc(final AST ast, final TypeInformation type, final BodyDeclaration bd) {
-        bd.setJavadoc(createJavadoc(ast, type.getSummary(), type.getDescription()));
+        final Javadoc doc = createJavadoc(ast, type.getSummary(), type.getDescription());
+        if (doc != null) {
+            bd.setJavadoc(doc);
+        }
+    }
+
+    private static boolean isEmpty(final String text) {
+        return text == null || text.isEmpty();
     }
 
     private static Javadoc createJavadoc(final AST ast, final String title, final String description) {
+        if (isEmpty(title) && isEmpty(description)) {
+            return null;
+        }
+
         final Javadoc doc = ast.newJavadoc();
 
         if (title != null) {
