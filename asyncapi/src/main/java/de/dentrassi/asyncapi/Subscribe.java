@@ -18,6 +18,6 @@ package de.dentrassi.asyncapi;
 
 import java.util.function.Consumer;
 
-public interface Subscriber<T> {
+public interface Subscribe<T> {
     public ListenerHandle subscribe(Consumer<T> consumer);
 }

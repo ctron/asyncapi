@@ -57,6 +57,14 @@ import de.dentrassi.asyncapi.Type;
 import de.dentrassi.asyncapi.TypeReference;
 
 public class Generator {
+    private static final String PUBSUB_CLASS_TYPE_NAME = "de.dentrassi.asyncapi.PublishSubscribe";
+
+    private static final String SUB_CLASS_TYPE_NAME = "de.dentrassi.asyncapi.Subscribe";
+
+    private static final String PUB_CLASS_TYPE_NAME = "de.dentrassi.asyncapi.Publish";
+
+    private static final String TOPIC_ANN_TYPE_NAME = "de.dentrassi.asyncapi.Topic";
+
     private final AsyncApi api;
     private Path target;
     private Charset characterSet = StandardCharsets.UTF_8;
@@ -150,7 +158,7 @@ public class Generator {
                             // assign annotation
 
                             final NormalAnnotation an = ast.newNormalAnnotation();
-                            an.setTypeName(ast.newName("de.dentrassi.asyncapi.Topic"));
+                            an.setTypeName(ast.newName(TOPIC_ANN_TYPE_NAME));
                             an.values().add(newKeyValueString(ast, "name", topic.getName()));
                             if (topic.getPublish() != null) {
                                 an.values().add(newKeyValueClass(ast, "publish", messageTypeName(topic.getPublish())));
@@ -191,11 +199,11 @@ public class Generator {
         final SimpleType eventType;
 
         if (pubMsg != null && subMsg != null) {
-            eventType = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.PubSub"));
+            eventType = ast.newSimpleType(ast.newName(PUBSUB_CLASS_TYPE_NAME));
         } else if (pubMsg != null) {
-            eventType = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.Publisher"));
+            eventType = ast.newSimpleType(ast.newName(PUB_CLASS_TYPE_NAME));
         } else {
-            eventType = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.Subscriber"));
+            eventType = ast.newSimpleType(ast.newName(SUB_CLASS_TYPE_NAME));
         }
 
         final ParameterizedType type = ast.newParameterizedType(eventType);

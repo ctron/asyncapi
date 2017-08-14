@@ -16,6 +16,8 @@
 
 package de.dentrassi.asyncapi;
 
-public interface PubSub<P, S> extends Publisher<P>, Subscriber<S> {
+import java.util.concurrent.CompletionStage;
 
+public interface Publish<T> {
+    public CompletionStage<?> publish(T message);
 }
