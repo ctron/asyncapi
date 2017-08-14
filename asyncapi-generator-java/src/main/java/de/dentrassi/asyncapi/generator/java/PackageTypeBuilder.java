@@ -170,7 +170,7 @@ public class PackageTypeBuilder implements TypeBuilder {
 
     @Override
     public void createType(final TypeInformation type, final boolean iface, final boolean serializable, final Consumer<TypeBuilder> consumer) {
-        createNew(asTypeName(type.getName()), (ast, cu) -> {
+        createNew(type.getName(), (ast, cu) -> {
             final TypeDeclaration td = createType(ast, cu, iface, serializable, type);
             cu.types().add(td);
             consumer.accept(new ClassTypeBuilder(ast, cu, td, this.typeLookup));
@@ -179,7 +179,7 @@ public class PackageTypeBuilder implements TypeBuilder {
 
     @Override
     public void createEnum(final TypeInformation type, final Set<String> literals) {
-        createNew(asTypeName(type.getName()), (ast, cu) -> {
+        createNew(type.getName(), (ast, cu) -> {
             final EnumDeclaration ed = createEnum(ast, cu, type, literals);
             cu.types().add(ed);
         });
@@ -210,7 +210,7 @@ public class PackageTypeBuilder implements TypeBuilder {
 
         addJavadoc(ast, type, td);
 
-        td.setName(ast.newSimpleName(asTypeName(type.getName())));
+        td.setName(ast.newSimpleName(type.getName()));
         makePublic(td);
 
         return td;
@@ -221,7 +221,7 @@ public class PackageTypeBuilder implements TypeBuilder {
 
         addJavadoc(ast, type, ed);
 
-        ed.setName(ast.newSimpleName(asTypeName(type.getName())));
+        ed.setName(ast.newSimpleName(type.getName()));
         makePublic(ed);
 
         for (final String literal : literals) {

@@ -16,6 +16,7 @@
 
 package de.dentrassi.asyncapi.generator.java;
 
+import static de.dentrassi.asyncapi.generator.java.PackageTypeBuilder.asPropertyName;
 import static de.dentrassi.asyncapi.generator.java.PackageTypeBuilder.asTypeName;
 import static java.util.Arrays.asList;
 import static java.util.Optional.empty;
@@ -34,11 +35,15 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.Javadoc;
 import org.eclipse.jdt.core.dom.MemberValuePair;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
 import org.eclipse.jdt.core.dom.NormalAnnotation;
 import org.eclipse.jdt.core.dom.ParameterizedType;
+import org.eclipse.jdt.core.dom.ReturnStatement;
 import org.eclipse.jdt.core.dom.SimpleType;
 import org.eclipse.jdt.core.dom.StringLiteral;
 import org.eclipse.jdt.core.dom.TagElement;
@@ -104,7 +109,6 @@ public class Generator {
         generateTopics();
     }
 
-    @SuppressWarnings("unchecked")
     private void generateTopics() {
 
         // prepare
@@ -129,15 +133,125 @@ public class Generator {
             topics.put(topic, ti);
         }
 
-        // render - services
+        renderServices(topics, versions);
+        renderClient(topics, versions);
+    }
 
+    private static class NewestService {
+        private final TypeInformation type;
+        private final Version version;
+
+        public NewestService(final TypeInformation type, final Version version) {
+            this.type = type;
+            this.version = version;
+        }
+
+        public TypeInformation getType() {
+            return this.type;
+        }
+
+        public Version getVersion() {
+            return this.version;
+        }
+    }
+
+    private void renderClient(final Map<Topic, TopicInformation> topics, final Map<String, Map<String, List<Topic>>> versions) {
+
+        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName(null), this.characterSet, type -> null);
+        builder.createType(new TypeInformation("Client", null, null), true, false, b -> {
+
+            final Map<String, NewestService> latest = new HashMap<>();
+
+            for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : versions.entrySet()) {
+                final String version = makeVersion(versionEntry.getKey());
+
+                b.createType(new TypeInformation(version.toUpperCase(), null, null), true, false, vb -> {
+
+                    for (final Map.Entry<String, List<Topic>> serviceEntry : versionEntry.getValue().entrySet()) {
+
+                        final TypeInformation serviceType = createServiceType(serviceEntry);
+
+                        vb.createMethod((ast, cu) -> {
+                            final MethodDeclaration md = ast.newMethodDeclaration();
+                            md.setName(ast.newSimpleName(PackageTypeBuilder.asPropertyName(serviceType.getName())));
+                            md.setReturnType2(ast.newSimpleType(ast.newName(packageName(version + "." + serviceType.getName()))));
+                            return md;
+                        });
+
+                        // record latest version
+
+                        final Version v = Version.valueOf(versionEntry.getKey());
+                        final NewestService lv = latest.get(serviceType.getName());
+                        if (lv == null || v.compareTo(lv.getVersion()) > 0) {
+                            latest.put(serviceType.getName(), new NewestService(serviceType, v));
+                        }
+
+                    }
+
+                });
+
+                // create version method - e.g. v1()
+
+                b.createMethod((ast, cu) -> {
+                    final MethodDeclaration md = ast.newMethodDeclaration();
+                    md.setName(ast.newSimpleName(version));
+                    md.setReturnType2(ast.newSimpleType(ast.newSimpleName(version.toUpperCase())));
+                    return md;
+                });
+
+            }
+
+            // create latest versions
+
+            for (final Map.Entry<String, NewestService> latestEntry : latest.entrySet()) {
+                b.createMethod((ast, cu) -> {
+                    return createReturnLatestVersionService(latestEntry, ast);
+                });
+            }
+
+        });
+
+    }
+
+    @SuppressWarnings("unchecked")
+    private MethodDeclaration createReturnLatestVersionService(final Map.Entry<String, NewestService> latestEntry, final AST ast) {
+        final String version = makeVersion(latestEntry.getValue().getVersion().toString());
+        final String serviceType = packageName(version + "." + latestEntry.getValue().getType().getName());
+
+        final MethodDeclaration md = ast.newMethodDeclaration();
+
+        md.setName(ast.newSimpleName(asPropertyName(latestEntry.getKey())));
+        md.setReturnType2(ast.newSimpleType(ast.newName(serviceType)));
+
+        md.modifiers().add(ast.newModifier(ModifierKeyword.DEFAULT_KEYWORD));
+
+        final Block block = ast.newBlock();
+        md.setBody(block);
+
+        final ReturnStatement ret = ast.newReturnStatement();
+        block.statements().add(ret);
+
+        final MethodInvocation versionMethod = ast.newMethodInvocation();
+        versionMethod.setName(ast.newSimpleName(version.toLowerCase()));
+
+        final MethodInvocation serviceMethod = ast.newMethodInvocation();
+        serviceMethod.setName(ast.newSimpleName(asPropertyName(latestEntry.getKey())));
+        serviceMethod.setExpression(versionMethod);
+
+        ret.setExpression(serviceMethod);
+
+        return md;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void renderServices(final Map<Topic, TopicInformation> topics, final Map<String, Map<String, List<Topic>>> versions) {
         for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : versions.entrySet()) {
 
             final String version = makeVersion(versionEntry.getKey());
             final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName(version), this.characterSet, type -> null);
 
             for (final Map.Entry<String, List<Topic>> serviceEntry : versionEntry.getValue().entrySet()) {
-                builder.createType(new TypeInformation(asTypeName(serviceEntry.getKey()), null, null), true, false, b -> {
+                builder.createType(createServiceType(serviceEntry), true, false, b -> {
 
                     for (final Topic topic : serviceEntry.getValue()) {
                         b.createMethod((ast, cu) -> {
@@ -184,6 +298,10 @@ public class Generator {
             }
 
         }
+    }
+
+    private TypeInformation createServiceType(final Map.Entry<String, List<Topic>> serviceEntry) {
+        return new TypeInformation(asTypeName(serviceEntry.getKey()), null, null);
     }
 
     @SuppressWarnings("unchecked")
@@ -323,7 +441,7 @@ public class Generator {
 
     private void generateMessage(final TypeBuilder builder, final Message message) {
 
-        final TypeInformation ti = new TypeInformation(PackageTypeBuilder.asTypeName(message.getName()), message.getSummary(), message.getDescription());
+        final TypeInformation ti = new TypeInformation(asTypeName(message.getName()), message.getSummary(), message.getDescription());
 
         final String payloadTypeName = PackageTypeBuilder.asTypeName(message.getPayload().getName());
 
@@ -371,7 +489,7 @@ public class Generator {
 
     private void generateObject(final ObjectType type, final TypeBuilder builder) {
 
-        final TypeInformation ti = new TypeInformation(PackageTypeBuilder.asTypeName(type.getName()), type.getTitle(), type.getDescription());
+        final TypeInformation ti = new TypeInformation(asTypeName(type.getName()), type.getTitle(), type.getDescription());
 
         builder.createType(ti, false, true, b -> {
 
@@ -423,7 +541,7 @@ public class Generator {
     }
 
     private void generateEnum(final EnumType type, final TypeBuilder builder) {
-        builder.createEnum(new TypeInformation(PackageTypeBuilder.asTypeName(type.getName()), type.getTitle(), type.getDescription()), type.getLiterals());
+        builder.createEnum(new TypeInformation(asTypeName(type.getName()), type.getTitle(), type.getDescription()), type.getLiterals());
     }
 
     private String packageName(final String local) {
