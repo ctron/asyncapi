@@ -79,8 +79,8 @@ public class PackageTypeBuilder implements TypeBuilder {
         }
 
         @Override
-        public void createType(final TypeInformation type, final boolean iface, final Consumer<TypeBuilder> consumer) {
-            final TypeDeclaration td = PackageTypeBuilder.createType(this.ast, this.cu, iface, type);
+        public void createType(final TypeInformation type, final boolean iface, final boolean serializable, final Consumer<TypeBuilder> consumer) {
+            final TypeDeclaration td = PackageTypeBuilder.createType(this.ast, this.cu, iface, serializable, type);
             this.td.bodyDeclarations().add(td);
 
             consumer.accept(new ClassTypeBuilder(this.ast, this.cu, td, this.typeLookup));
@@ -169,9 +169,9 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     @Override
-    public void createType(final TypeInformation type, final boolean iface, final Consumer<TypeBuilder> consumer) {
+    public void createType(final TypeInformation type, final boolean iface, final boolean serializable, final Consumer<TypeBuilder> consumer) {
         createNew(asTypeName(type.getName()), (ast, cu) -> {
-            final TypeDeclaration td = createType(ast, cu, iface, type);
+            final TypeDeclaration td = createType(ast, cu, iface, serializable, type);
             cu.types().add(td);
             consumer.accept(new ClassTypeBuilder(ast, cu, td, this.typeLookup));
         });
@@ -195,9 +195,18 @@ public class PackageTypeBuilder implements TypeBuilder {
         throw new IllegalStateException("Unable to create method on package level");
     }
 
-    private static TypeDeclaration createType(final AST ast, final CompilationUnit cu, final boolean iface, final TypeInformation type) {
+    private static TypeDeclaration createType(final AST ast, final CompilationUnit cu, final boolean iface, final boolean serializable, final TypeInformation type) {
         final TypeDeclaration td = ast.newTypeDeclaration();
         td.setInterface(iface);
+
+        if (serializable) {
+            final org.eclipse.jdt.core.dom.Type superclassType = ast.newSimpleType(ast.newName("java.io.Serializable"));
+            if (iface) {
+                td.setSuperclassType(superclassType);
+            } else {
+                td.superInterfaceTypes().add(superclassType);
+            }
+        }
 
         addJavadoc(ast, type, td);
 

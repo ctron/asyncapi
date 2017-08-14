@@ -26,7 +26,7 @@ import org.eclipse.jdt.core.dom.MethodDeclaration;
 
 public interface TypeBuilder {
 
-    public void createType(TypeInformation type, boolean iface, Consumer<TypeBuilder> consumer);
+    public void createType(TypeInformation type, boolean iface, boolean serializable, Consumer<TypeBuilder> consumer);
 
     public void createEnum(TypeInformation type, Set<String> literals);
 

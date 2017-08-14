@@ -110,7 +110,6 @@ public class Generator {
         // prepare
 
         final Map<Topic, TopicInformation> topics = new LinkedHashMap<>(this.api.getTopics().size());
-
         final Map<String, Map<String, List<Topic>>> versions = new HashMap<>();
 
         for (final Topic topic : this.api.getTopics()) {
@@ -130,14 +129,15 @@ public class Generator {
             topics.put(topic, ti);
         }
 
-        // render
+        // render - services
 
         for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : versions.entrySet()) {
 
-            final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName(makeVersion(versionEntry.getKey())), this.characterSet, type -> null);
+            final String version = makeVersion(versionEntry.getKey());
+            final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName(version), this.characterSet, type -> null);
 
             for (final Map.Entry<String, List<Topic>> serviceEntry : versionEntry.getValue().entrySet()) {
-                builder.createType(new TypeInformation(asTypeName(serviceEntry.getKey()), null, null), true, b -> {
+                builder.createType(new TypeInformation(asTypeName(serviceEntry.getKey()), null, null), true, false, b -> {
 
                     for (final Topic topic : serviceEntry.getValue()) {
                         b.createMethod((ast, cu) -> {
@@ -327,7 +327,7 @@ public class Generator {
 
         final String payloadTypeName = PackageTypeBuilder.asTypeName(message.getPayload().getName());
 
-        builder.createType(ti, false, b -> {
+        builder.createType(ti, false, false, b -> {
 
             if (message.getPayload() instanceof ObjectType) {
 
@@ -373,7 +373,7 @@ public class Generator {
 
         final TypeInformation ti = new TypeInformation(PackageTypeBuilder.asTypeName(type.getName()), type.getTitle(), type.getDescription());
 
-        builder.createType(ti, false, b -> {
+        builder.createType(ti, false, true, b -> {
 
             for (final Property property : type.getProperties()) {
                 generateProperty(property, b);
