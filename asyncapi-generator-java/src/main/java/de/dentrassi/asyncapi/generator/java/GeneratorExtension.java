@@ -28,7 +28,6 @@ public interface GeneratorExtension {
     }
 
     public default void createdEnumLiteral(final String literal, final EnumConstantDeclaration enumConstantDeclaration) {
-
     }
 
 }
