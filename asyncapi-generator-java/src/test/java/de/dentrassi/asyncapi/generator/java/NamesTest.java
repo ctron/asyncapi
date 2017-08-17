@@ -87,6 +87,21 @@ public class NamesTest {
         assertAll("foo-bar-baz", "fooBarBaz", "FooBarBaz", "foo-bar-baz", "FOO_BAR_BAZ");
     }
 
+    @Test
+    public void testAll4() {
+        assertAll("field11Bar", "field11Bar", "Field11Bar", "field-11-bar", "FIELD_11_BAR");
+    }
+
+    @Test
+    public void testAll5() {
+        assertAll("fieldB11ar", "fieldB11Ar", "FieldB11Ar", "field-b11-ar", "FIELD_B11_AR");
+    }
+
+    @Test
+    public void testAll6() {
+        assertAll("fieldBBar", "fieldBbar", "FieldBbar", "field-bbar", "FIELD_BBAR");
+    }
+
     public static void assertAll(final String text, final String camelLower, final String camelUpper, final String lowerDash, final String upperUnderscore) {
         assertEquals(camelLower, toCamelCase(text, false));
         assertEquals(camelUpper, toCamelCase(text, true));

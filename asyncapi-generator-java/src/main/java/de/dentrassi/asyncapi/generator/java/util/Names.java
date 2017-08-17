@@ -47,6 +47,10 @@ public final class Names {
         return toFormat(text, words -> joinDelimiter(words, String::toUpperCase, "_"));
     }
 
+    private static enum Type {
+        UPPER, LOWER, NUMERIC, OTHER;
+    }
+
     public static String toFormat(final String text, final Function<List<String>, String> target) {
         if (text == null) {
             return null;
@@ -55,40 +59,60 @@ public final class Names {
         final List<String> words = new LinkedList<>();
         final int len = text.length();
 
-        boolean wasLower = false;
+        Type lastType = Type.UPPER;
         StringBuilder sb = new StringBuilder();
 
         for (int i = 0; i < len; i++) {
             final char c = text.charAt(i);
 
-            if (Character.isAlphabetic(c)) {
-                if (wasLower && Character.isUpperCase(c)) {
-                    if (sb != null) {
-                        words.add(sb.toString());
-                    }
-                    sb = new StringBuilder();
-                    sb.append(c);
-                } else {
-                    if (sb == null) {
-                        sb = new StringBuilder();
-                    }
-                    sb.append(c);
-                }
+            final Type type = typeOf(c);
+
+            if (lastType == Type.LOWER && (type == Type.UPPER || type == Type.NUMERIC)) {
+                sb = split(sb, words);
+                sb = append(sb, c);
+            } else if (lastType == Type.NUMERIC && (type == Type.UPPER || type == Type.LOWER)) {
+                sb = split(sb, words);
+                sb = append(sb, c);
+            } else if (type != Type.OTHER) {
+                sb = append(sb, c);
             } else {
-                if (sb != null) {
-                    words.add(sb.toString());
-                    sb = null;
-                }
+                // unknown type: split and ignore
+                sb = split(sb, words);
             }
 
-            wasLower = Character.isLowerCase(c);
+            lastType = type;
         }
 
-        if (sb != null) {
-            words.add(sb.toString());
-        }
+        split(sb, words);
 
         return target.apply(words);
+    }
+
+    private static StringBuilder append(StringBuilder sb, final char c) {
+        if (sb == null) {
+            sb = new StringBuilder();
+        }
+        sb.append(c);
+        return sb;
+    }
+
+    private static StringBuilder split(StringBuilder sb, final List<String> words) {
+        if (sb != null) {
+            words.add(sb.toString());
+            sb = null;
+        }
+        return sb;
+    }
+
+    private static Type typeOf(final char c) {
+        if (Character.isUpperCase(c)) {
+            return Type.UPPER;
+        } else if (Character.isDigit(c)) {
+            return Type.NUMERIC;
+        } else if (Character.isAlphabetic(c)) {
+            return Type.LOWER;
+        }
+        return Type.OTHER;
     }
 
     private static String joinDelimiter(final List<String> words, Function<String, String> conversion, final String delimiter) {
