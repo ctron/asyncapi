@@ -22,8 +22,7 @@ public class PropertyInformation {
     private final String summary;
     private final String description;
 
-    public PropertyInformation(final String typeName, final String name, final String summary,
-            final String description) {
+    public PropertyInformation(final String typeName, final String name, final String summary, final String description) {
         this.typeName = typeName;
         this.name = name;
         this.summary = summary;

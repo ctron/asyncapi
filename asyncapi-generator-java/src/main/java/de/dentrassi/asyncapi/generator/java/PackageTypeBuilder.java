@@ -49,6 +49,7 @@ import org.eclipse.jdt.core.dom.Javadoc;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
 import org.eclipse.jdt.core.dom.PackageDeclaration;
+import org.eclipse.jdt.core.dom.PrimitiveType;
 import org.eclipse.jdt.core.dom.ReturnStatement;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.TagElement;
@@ -379,6 +380,25 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     private static org.eclipse.jdt.core.dom.Type createPropertyType(final AST ast, final PropertyInformation property, final Function<String, Type> typeLookup) {
+
+        switch (property.getTypeName()) {
+        case "short":
+            return ast.newPrimitiveType(PrimitiveType.SHORT);
+        case "int":
+            return ast.newPrimitiveType(PrimitiveType.INT);
+        case "long":
+            return ast.newPrimitiveType(PrimitiveType.LONG);
+        case "boolean":
+            return ast.newPrimitiveType(PrimitiveType.BOOLEAN);
+        case "double":
+            return ast.newPrimitiveType(PrimitiveType.DOUBLE);
+        case "float":
+            return ast.newPrimitiveType(PrimitiveType.FLOAT);
+        case "char":
+            return ast.newPrimitiveType(PrimitiveType.CHAR);
+        case "byte":
+            return ast.newPrimitiveType(PrimitiveType.BYTE);
+        }
 
         return ast.newSimpleType(ast.newName(property.getTypeName()));
     }

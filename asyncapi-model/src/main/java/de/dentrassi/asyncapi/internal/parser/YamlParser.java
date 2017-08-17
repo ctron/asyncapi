@@ -173,6 +173,12 @@ public class YamlParser {
     private Type parseExplicitType(final String name, final Map<String, ?> map) {
         final String type = asString("type", map);
         switch (type) {
+        case "boolean":
+            return addCommonTypeInfo(new CoreType(name, Boolean.class), map);
+        case "integer":
+            return addCommonTypeInfo(new CoreType(name, Integer.class), map);
+        case "number":
+            return addCommonTypeInfo(new CoreType(name, Double.class), map);
         case "string": {
             if (map.containsKey("enum")) {
                 return addCommonTypeInfo(parseEnumType(name, map), map);
@@ -182,7 +188,7 @@ public class YamlParser {
         case "object":
             return addCommonTypeInfo(parseObjectType(name, map), map);
         default:
-            throw new IllegalStateException(String.format("Unknown type: %s", type));
+            throw new IllegalStateException(String.format("Unsupported type: %s", type));
         }
     }
 
@@ -200,7 +206,6 @@ public class YamlParser {
 
         if (format == null) {
             return new CoreType(name, String.class);
-
         }
 
         switch (format) {

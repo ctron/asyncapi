@@ -665,7 +665,23 @@ public class Generator {
         // need to check resolved type
 
         if (type instanceof CoreType) {
+            // use resolved type
             typeName = ((CoreType) type).getJavaType().getName();
+
+            // try using primitive values
+            if (property.isRequired()) {
+                switch (typeName) {
+                case "java.lang.Boolean":
+                    typeName = "boolean";
+                    break;
+                case "java.lang.Integer":
+                    typeName = "int";
+                    break;
+                case "java.lang.Double":
+                    typeName = "double";
+                    break;
+                }
+            }
         }
 
         final String name = PackageTypeBuilder.asPropertyName(property.getName());
