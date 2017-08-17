@@ -16,21 +16,23 @@
 
 package de.dentrassi.asyncapi.generator.java;
 
+import de.dentrassi.asyncapi.Type;
+
 public class PropertyInformation {
-    private final String typeName;
+    private final Type type;
     private final String name;
     private final String summary;
     private final String description;
 
-    public PropertyInformation(final String typeName, final String name, final String summary, final String description) {
-        this.typeName = typeName;
+    public PropertyInformation(final Type type, final String name, final String summary, final String description) {
+        this.type = type;
         this.name = name;
         this.summary = summary;
         this.description = description;
     }
 
-    public String getTypeName() {
-        return this.typeName;
+    public Type getType() {
+        return this.type;
     }
 
     public String getName() {

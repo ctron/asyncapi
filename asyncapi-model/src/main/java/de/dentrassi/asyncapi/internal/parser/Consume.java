@@ -104,4 +104,17 @@ public final class Consume {
         throw wrongTypeError(key, Collection.class, value);
     }
 
+    public static boolean asBoolean(final Map<String, ?> map, final String key) {
+        final Object value = map.get(key);
+        if (value == null) {
+            return false;
+        }
+
+        if (value instanceof Boolean) {
+            return (boolean) value;
+        }
+
+        return Boolean.parseBoolean(value.toString());
+    }
+
 }

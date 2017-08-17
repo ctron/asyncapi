@@ -17,15 +17,16 @@
 package de.dentrassi.asyncapi;
 
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
-public class EnumType extends Type {
+public class EnumType extends ParentableType {
     private Set<String> literals = new LinkedHashSet<>();
 
-    public EnumType(final String name) {
-        super(name);
+    public EnumType(final String namespace, final List<String> parents, final String name) {
+        super(namespace, parents, name);
     }
 
     public Set<String> getLiterals() {

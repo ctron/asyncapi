@@ -58,6 +58,7 @@ import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.TypeLiteral;
 import org.eclipse.jdt.core.dom.TypeParameter;
 
+import de.dentrassi.asyncapi.ArrayType;
 import de.dentrassi.asyncapi.AsyncApi;
 import de.dentrassi.asyncapi.CoreType;
 import de.dentrassi.asyncapi.EnumType;
@@ -65,6 +66,7 @@ import de.dentrassi.asyncapi.Information;
 import de.dentrassi.asyncapi.Message;
 import de.dentrassi.asyncapi.MessageReference;
 import de.dentrassi.asyncapi.ObjectType;
+import de.dentrassi.asyncapi.ParentableType;
 import de.dentrassi.asyncapi.Property;
 import de.dentrassi.asyncapi.Topic;
 import de.dentrassi.asyncapi.Type;
@@ -236,7 +238,7 @@ public class Generator {
     }
 
     private TypeBuilder createTypeBuilder(final String localPackageName) {
-        return new PackageTypeBuilder(this.options.getTargetPath(), packageName(localPackageName), this.options.getCharacterSet(), type -> null);
+        return new PackageTypeBuilder(this.options.getTargetPath(), packageName(localPackageName), this.options.getCharacterSet(), type -> null, this::lookupType);
     }
 
     private void renderClient() {
@@ -401,7 +403,7 @@ public class Generator {
         for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : this.serviceDefinitions.getVersions().entrySet()) {
 
             final String version = makeVersion(versionEntry.getKey());
-            final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName(version), this.options.getCharacterSet(), type -> null);
+            final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName(version), this.options.getCharacterSet(), type -> null, this::lookupType);
 
             for (final Map.Entry<String, List<Topic>> serviceEntry : versionEntry.getValue().entrySet()) {
                 builder.createType(createServiceTypeInformation(serviceEntry), true, false, b -> {
@@ -559,7 +561,8 @@ public class Generator {
     }
 
     private void generateMessages() {
-        final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName("messages"), this.options.getCharacterSet(), this::lookupType);
+        final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName("messages"), this.options.getCharacterSet(), this::resolveTypeName,
+                this::lookupType);
 
         this.api.getMessages().forEach(message -> {
             generateMessage(builder, message);
@@ -575,7 +578,7 @@ public class Generator {
 
         final TypeInformation ti = new TypeInformation(asTypeName(message.getName()), message.getSummary(), message.getDescription());
 
-        final String payloadTypeName = PackageTypeBuilder.asTypeName(message.getPayload().getName());
+        //         final String payloadTypeName = PackageTypeBuilder.asTypeName(message.getPayload().getName());
 
         @SuppressWarnings("unchecked")
         final Consumer<TypeDeclaration> typeCustomizer = td -> {
@@ -587,21 +590,22 @@ public class Generator {
             td.superInterfaceTypes().add(type);
         };
 
+        final TypeReference payloadType = message.getPayload();
+
         builder.createType(ti, typeCustomizer, b -> {
 
-            if (message.getPayload() instanceof ObjectType) {
+            if (payloadType instanceof ObjectType) {
 
-                generateType(b, (Type) message.getPayload());
+                generateType(b, (Type) payloadType);
 
-                b.createProperty(new PropertyInformation("Payload", "payload", "Message payload", null));
+                b.createProperty(new PropertyInformation((Type) payloadType, "payload", "Message payload", null));
 
-            } else if (message.getPayload() instanceof CoreType) {
+            } else if (payloadType instanceof CoreType) {
 
-                final String typeName = ((CoreType) message.getPayload()).getJavaType().getName();
-                b.createProperty(new PropertyInformation(typeName, "payload", "Message payload", null));
+                b.createProperty(new PropertyInformation((CoreType) message.getPayload(), "payload", "Message payload", null));
 
-            } else if (message.getPayload().getClass().equals(TypeReference.class)) {
-                b.createProperty(new PropertyInformation(packageName("types." + payloadTypeName), "payload", "Message payload", null));
+            } else if (payloadType.getClass().equals(TypeReference.class)) {
+                b.createProperty(new PropertyInformation(lookupType(payloadType), "payload", "Message payload", null));
             } else {
                 throw new IllegalStateException("Unsupported payload type: " + message.getPayload().getClass().getName());
             }
@@ -611,10 +615,8 @@ public class Generator {
 
     private void generateTypes() {
 
-        final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName("types"), this.options.getCharacterSet(), typeName -> {
-            return this.api.getTypes().stream().filter(type -> type.getName().equals(typeName)).findFirst()
-                    .orElseThrow(() -> new IllegalStateException(String.format("Unknown type '%s' referenced", typeName)));
-        });
+        final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName("types"), this.options.getCharacterSet(), this::resolveTypeName,
+                this::lookupType);
 
         this.api.getTypes().forEach(type -> {
             generateType(builder, type);
@@ -642,60 +644,91 @@ public class Generator {
 
     }
 
-    private void generateProperty(final Property property, final TypeBuilder builder) {
-        final Type type;
+    private static String toPrimitives(final CoreType type) {
+        final String typeName = type.getJavaType().getName();
 
-        String typeName;
+        switch (typeName) {
+        case "java.lang.Boolean":
+            return "boolean";
+        case "java.lang.Integer":
+            return "int";
+        case "java.lang.Double":
+            return "double";
+        default:
+            return typeName;
+        }
 
-        if (property.getType() instanceof Type) {
-            type = (Type) property.getType();
-            generateType(builder, (Type) property.getType());
+    }
 
-            if (property.getType() instanceof CoreType) {
-                typeName = ((CoreType) type).getJavaType().getName();
+    private String resolveTypeName(final Type type) {
+        return resolveTypeName(type, false);
+    }
+
+    private String resolveTypeName(final TypeReference typeRef, final boolean allowPrimitives) {
+        if (typeRef instanceof ObjectType || typeRef instanceof EnumType) {
+
+            return resolveParentableTypeName(typeRef);
+
+        } else if (typeRef instanceof CoreType) {
+
+            if (allowPrimitives) {
+                return toPrimitives((CoreType) typeRef);
             } else {
-                typeName = PackageTypeBuilder.asTypeName(type.getName());
+                return ((CoreType) typeRef).getJavaType().getName();
             }
+
+        } else if (typeRef instanceof ArrayType) {
+
+            return resolveTypeName(((ArrayType) typeRef).getItemType(), false);
 
         } else {
-            type = lookupType(property.getType().getName());
-            typeName = packageName("types." + PackageTypeBuilder.asTypeName(type.getName()));
+
+            return resolveTypeName(lookupType(typeRef.getName()), allowPrimitives);
+
         }
+    }
 
-        // need to check resolved type
+    private String resolveParentableTypeName(final TypeReference typeRef) {
+        final List<String> full = new LinkedList<>();
 
-        if (type instanceof CoreType) {
-            // use resolved type
-            typeName = ((CoreType) type).getJavaType().getName();
+        full.add(typeRef.getNamespace());
 
-            // try using primitive values
-            if (property.isRequired()) {
-                switch (typeName) {
-                case "java.lang.Boolean":
-                    typeName = "boolean";
-                    break;
-                case "java.lang.Integer":
-                    typeName = "int";
-                    break;
-                case "java.lang.Double":
-                    typeName = "double";
-                    break;
-                }
+        if (typeRef instanceof ParentableType) {
+            for (final String parent : ((ParentableType) typeRef).getParents()) {
+                full.add(asTypeName(parent));
             }
         }
+
+        full.add(asTypeName(typeRef.getName()));
+
+        return packageName(String.join(".", full));
+    }
+
+    private Type lookupType(final TypeReference typeRef) {
+        if (typeRef instanceof Type) {
+            return (Type) typeRef;
+        }
+
+        return lookupType(typeRef.getName());
+    }
+
+    private void generateProperty(final Property property, final TypeBuilder builder) {
+
+        // build local type
+
+        final TypeReference type = property.getType();
+        if (type instanceof Type) {
+            generateType(builder, (Type) type);
+        }
+
+        // generate property
 
         final String name = PackageTypeBuilder.asPropertyName(property.getName());
 
-        String summary = property.getDescription();
-        String description = null;
-        if (summary == null) {
-            summary = type.getTitle();
-            description = type.getDescription();
-        }
+        final String summary = property.getDescription(); // FIXME: chase description
+        final String description = null; // FIXME: chase description
 
-        final PropertyInformation p = new PropertyInformation(typeName, name, summary, description);
-
-        builder.createProperty(p);
+        builder.createProperty(new PropertyInformation(lookupType(type), name, summary, description));
     }
 
     private void generateEnum(final EnumType type, final TypeBuilder builder) {

@@ -16,36 +16,20 @@
 
 package de.dentrassi.asyncapi;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
+import java.util.Collections;
+import java.util.List;
 
-public abstract class Type extends TypeReference {
-    private String title;
+public class ParentableType extends Type {
 
-    private String description;
+    private final List<String> parents;
 
-    public Type(final String namespace, final String name) {
+    public ParentableType(final String namespace, final List<String> parents, final String name) {
         super(namespace, name);
+        this.parents = Collections.unmodifiableList(parents);
     }
 
-    public String getTitle() {
-        return this.title;
-    }
-
-    public void setTitle(final String title) {
-        this.title = title;
-    }
-
-    public String getDescription() {
-        return this.description;
-    }
-
-    public void setDescription(final String description) {
-        this.description = description;
-    }
-
-    @Override
-    public String toString() {
-        return ToStringBuilder.reflectionToString(this);
+    public List<String> getParents() {
+        return this.parents;
     }
 
 }

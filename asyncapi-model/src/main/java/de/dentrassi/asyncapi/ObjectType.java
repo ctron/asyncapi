@@ -17,17 +17,18 @@
 package de.dentrassi.asyncapi;
 
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class ObjectType extends Type {
+public class ObjectType extends ParentableType {
 
     private Set<Property> properties = new LinkedHashSet<>();
 
-    public ObjectType(final String name) {
-        super(name);
+    public ObjectType(final String namespace, final List<String> parents, final String name) {
+        super(namespace, parents, name);
     }
 
     public Set<Property> getProperties() {

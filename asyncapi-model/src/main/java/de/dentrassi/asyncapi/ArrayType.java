@@ -16,17 +16,22 @@
 
 package de.dentrassi.asyncapi;
 
-public class CoreType extends Type {
+public class ArrayType extends Type {
 
-    private final Class<?> javaType;
+    private final TypeReference itemType;
+    private final boolean unique;
 
-    public CoreType(final String name, final Class<?> javaType) {
+    public ArrayType(final String name, final TypeReference itemType, final boolean unique) {
         super("", name);
-        this.javaType = javaType;
+        this.itemType = itemType;
+        this.unique = unique;
     }
 
-    public Class<?> getJavaType() {
-        return this.javaType;
+    public TypeReference getItemType() {
+        return this.itemType;
     }
 
+    public boolean isUnique() {
+        return this.unique;
+    }
 }

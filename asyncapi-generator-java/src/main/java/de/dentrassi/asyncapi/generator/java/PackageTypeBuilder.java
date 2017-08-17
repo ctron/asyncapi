@@ -49,13 +49,17 @@ import org.eclipse.jdt.core.dom.Javadoc;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
 import org.eclipse.jdt.core.dom.PackageDeclaration;
+import org.eclipse.jdt.core.dom.ParameterizedType;
 import org.eclipse.jdt.core.dom.PrimitiveType;
 import org.eclipse.jdt.core.dom.ReturnStatement;
+import org.eclipse.jdt.core.dom.SimpleType;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.TagElement;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
+import de.dentrassi.asyncapi.ArrayType;
+import de.dentrassi.asyncapi.CoreType;
 import de.dentrassi.asyncapi.Type;
 import de.dentrassi.asyncapi.TypeReference;
 import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
@@ -64,18 +68,24 @@ import de.dentrassi.asyncapi.generator.java.util.Names;
 @SuppressWarnings("unchecked")
 public class PackageTypeBuilder implements TypeBuilder {
 
+    private static final String TYPE_NAME_LIST = "java.util.List";
+    private static final String TYPE_NAME_SET = "java.util.Set";
+
     private static class ClassTypeBuilder implements TypeBuilder {
 
         private final AST ast;
         private final CompilationUnit cu;
         private final TypeDeclaration td;
-        private final Function<String, Type> typeLookup;
+        private final Function<Type, String> typeLookup;
+        private final Function<TypeReference, Type> typeResolver;
 
-        public ClassTypeBuilder(final AST ast, final CompilationUnit cu, final TypeDeclaration td, final Function<String, Type> typeLookup) {
+        public ClassTypeBuilder(final AST ast, final CompilationUnit cu, final TypeDeclaration td, final Function<Type, String> typeLookup,
+                final Function<TypeReference, Type> typeResolver) {
             this.ast = ast;
             this.cu = cu;
             this.td = td;
             this.typeLookup = typeLookup;
+            this.typeResolver = typeResolver;
         }
 
         @Override
@@ -91,7 +101,7 @@ public class PackageTypeBuilder implements TypeBuilder {
             final TypeDeclaration td = PackageTypeBuilder.createType(this.ast, this.cu, typeCustomizer, type);
             this.td.bodyDeclarations().add(td);
 
-            consumer.accept(new ClassTypeBuilder(this.ast, this.cu, td, this.typeLookup));
+            consumer.accept(new ClassTypeBuilder(this.ast, this.cu, td, this.typeLookup, this.typeResolver));
         }
 
         @Override
@@ -104,7 +114,7 @@ public class PackageTypeBuilder implements TypeBuilder {
 
         @Override
         public void createProperty(final PropertyInformation property) {
-            PackageTypeBuilder.createProperty(this.ast, this.td, property, this.typeLookup);
+            PackageTypeBuilder.createProperty(this.ast, this.td, property, this.typeLookup, this.typeResolver);
         }
 
     }
@@ -112,13 +122,16 @@ public class PackageTypeBuilder implements TypeBuilder {
     private final Charset charset;
     private final String packageName;
     private final Path rootPath;
-    private final Function<String, Type> typeLookup;
+    private final Function<Type, String> typeLookup;
+    private final Function<TypeReference, Type> typeResolver;
 
-    public PackageTypeBuilder(final Path root, final String packageName, final Charset charset, final Function<String, Type> typeLookup) {
+    public PackageTypeBuilder(final Path root, final String packageName, final Charset charset, final Function<Type, String> typeLookup,
+            final Function<TypeReference, Type> typeResolver) {
         this.charset = charset;
         this.packageName = packageName;
         this.rootPath = root;
         this.typeLookup = typeLookup;
+        this.typeResolver = typeResolver;
     }
 
     public static String asTypeName(final String name) {
@@ -180,7 +193,7 @@ public class PackageTypeBuilder implements TypeBuilder {
         createNew(type.getName(), (ast, cu) -> {
             final TypeDeclaration td = createType(ast, cu, typeCustomizer, type);
             cu.types().add(td);
-            consumer.accept(new ClassTypeBuilder(ast, cu, td, this.typeLookup));
+            consumer.accept(new ClassTypeBuilder(ast, cu, td, this.typeLookup, this.typeResolver));
         });
     }
 
@@ -308,7 +321,8 @@ public class PackageTypeBuilder implements TypeBuilder {
         return typeLookup.apply(type.getName());
     }
 
-    public static void createProperty(final AST ast, final TypeDeclaration td, final PropertyInformation property, final Function<String, Type> typeLookup) {
+    public static void createProperty(final AST ast, final TypeDeclaration td, final PropertyInformation property, final Function<Type, String> typeLookup,
+            final Function<TypeReference, Type> typeResolver) {
 
         final String name = asPropertyName(property.getName());
 
@@ -317,7 +331,7 @@ public class PackageTypeBuilder implements TypeBuilder {
 
         final FieldDeclaration fd = ast.newFieldDeclaration(fragment);
         fd.modifiers().add(ast.newModifier(ModifierKeyword.PRIVATE_KEYWORD));
-        fd.setType(createPropertyType(ast, property, typeLookup));
+        fd.setType(createPropertyType(ast, property.getType(), typeLookup, typeResolver));
 
         final Javadoc doc = createJavadoc(ast, property.getSummary(), property.getDescription());
         if (doc != null) {
@@ -335,7 +349,7 @@ public class PackageTypeBuilder implements TypeBuilder {
         setter.setName(ast.newSimpleName(asMethodPropertyName("set", name)));
         final SingleVariableDeclaration arg = ast.newSingleVariableDeclaration();
         arg.setName(ast.newSimpleName(name));
-        arg.setType(createPropertyType(ast, property, typeLookup));
+        arg.setType(createPropertyType(ast, property.getType(), typeLookup, typeResolver));
         arg.modifiers().add(ast.newModifier(ModifierKeyword.FINAL_KEYWORD));
         setter.parameters().add(arg);
 
@@ -364,7 +378,7 @@ public class PackageTypeBuilder implements TypeBuilder {
         makePublic(getter);
 
         getter.setName(ast.newSimpleName(asMethodPropertyName("get", name)));
-        getter.setReturnType2(createPropertyType(ast, property, typeLookup));
+        getter.setReturnType2(createPropertyType(ast, property.getType(), typeLookup, typeResolver));
 
         {
             final Block body = ast.newBlock();
@@ -379,28 +393,51 @@ public class PackageTypeBuilder implements TypeBuilder {
 
     }
 
-    private static org.eclipse.jdt.core.dom.Type createPropertyType(final AST ast, final PropertyInformation property, final Function<String, Type> typeLookup) {
+    private static org.eclipse.jdt.core.dom.Type createPropertyType(final AST ast, final Type type, final Function<Type, String> typeLookup,
+            final Function<TypeReference, Type> typeResolver) {
 
-        switch (property.getTypeName()) {
-        case "short":
-            return ast.newPrimitiveType(PrimitiveType.SHORT);
-        case "int":
-            return ast.newPrimitiveType(PrimitiveType.INT);
-        case "long":
-            return ast.newPrimitiveType(PrimitiveType.LONG);
-        case "boolean":
-            return ast.newPrimitiveType(PrimitiveType.BOOLEAN);
-        case "double":
-            return ast.newPrimitiveType(PrimitiveType.DOUBLE);
-        case "float":
-            return ast.newPrimitiveType(PrimitiveType.FLOAT);
-        case "char":
-            return ast.newPrimitiveType(PrimitiveType.CHAR);
-        case "byte":
-            return ast.newPrimitiveType(PrimitiveType.BYTE);
+        if (type instanceof CoreType) {
+            final Class<?> clazz = ((CoreType) type).getJavaType();
+
+            if (clazz.equals(short.class)) {
+                return ast.newPrimitiveType(PrimitiveType.SHORT);
+            } else if (clazz.equals(int.class)) {
+                return ast.newPrimitiveType(PrimitiveType.INT);
+            } else if (clazz.equals(long.class)) {
+                return ast.newPrimitiveType(PrimitiveType.LONG);
+            } else if (clazz.equals(boolean.class)) {
+                return ast.newPrimitiveType(PrimitiveType.BOOLEAN);
+            } else if (clazz.equals(double.class)) {
+                return ast.newPrimitiveType(PrimitiveType.DOUBLE);
+            } else if (clazz.equals(float.class)) {
+                return ast.newPrimitiveType(PrimitiveType.FLOAT);
+            } else if (clazz.equals(char.class)) {
+                return ast.newPrimitiveType(PrimitiveType.CHAR);
+            } else if (clazz.equals(byte.class)) {
+                return ast.newPrimitiveType(PrimitiveType.BYTE);
+            } else {
+                return ast.newSimpleType(ast.newName(clazz.getName()));
+            }
+
+        } else if (type instanceof ArrayType) {
+
+            final boolean unique = ((ArrayType) type).isUnique();
+            final SimpleType rawCollectionType;
+            if (unique) {
+                rawCollectionType = ast.newSimpleType(ast.newName(TYPE_NAME_SET));
+            } else {
+                rawCollectionType = ast.newSimpleType(ast.newName(TYPE_NAME_LIST));
+            }
+            final ParameterizedType collectionType = ast.newParameterizedType(rawCollectionType);
+
+            collectionType.typeArguments().add(createPropertyType(ast, typeResolver.apply(((ArrayType) type).getItemType()), typeLookup, typeResolver));
+
+            return collectionType;
+
+        } else {
+            return ast.newSimpleType(ast.newName(typeLookup.apply(type)));
         }
 
-        return ast.newSimpleType(ast.newName(property.getTypeName()));
     }
 
     private static void addJavadoc(final AST ast, final TypeInformation type, final BodyDeclaration bd) {

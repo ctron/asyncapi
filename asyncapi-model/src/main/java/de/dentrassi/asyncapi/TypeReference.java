@@ -19,10 +19,16 @@ package de.dentrassi.asyncapi;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
 public class TypeReference {
+    private final String namespace;
     private final String name;
 
-    public TypeReference(final String name) {
+    public TypeReference(final String namespace, final String name) {
+        this.namespace = namespace;
         this.name = name;
+    }
+
+    public String getNamespace() {
+        return this.namespace;
     }
 
     public String getName() {
@@ -34,6 +40,7 @@ public class TypeReference {
         final int prime = 31;
         int result = 1;
         result = prime * result + (this.name == null ? 0 : this.name.hashCode());
+        result = prime * result + (this.namespace == null ? 0 : this.namespace.hashCode());
         return result;
     }
 
@@ -54,6 +61,13 @@ public class TypeReference {
                 return false;
             }
         } else if (!this.name.equals(other.name)) {
+            return false;
+        }
+        if (this.namespace == null) {
+            if (other.namespace != null) {
+                return false;
+            }
+        } else if (!this.namespace.equals(other.namespace)) {
             return false;
         }
         return true;

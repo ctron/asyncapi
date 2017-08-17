@@ -27,6 +27,7 @@ import static de.dentrassi.asyncapi.internal.parser.Consume.asString;
 import java.io.InputStream;
 import java.io.Reader;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,6 +41,7 @@ import java.util.Set;
 
 import org.yaml.snakeyaml.Yaml;
 
+import de.dentrassi.asyncapi.ArrayType;
 import de.dentrassi.asyncapi.AsyncApi;
 import de.dentrassi.asyncapi.CoreType;
 import de.dentrassi.asyncapi.EnumType;
@@ -109,7 +111,7 @@ public class YamlParser {
 
         for (final Map.Entry<String, ?> entry : map.entrySet()) {
             final String name = entry.getKey();
-            result.add(parseExplicitType(name, asMap(entry.getValue())));
+            result.add(parseExplicitType("types", Collections.emptyList(), name, asMap(entry.getValue())));
         }
 
         return result;
@@ -151,12 +153,16 @@ public class YamlParser {
         }
 
         public String last() {
-            return this.tokens.get(this.tokens.size() - 1);
+            return last(0);
+        }
+
+        public String last(final int reverseIndex) {
+            return this.tokens.get(this.tokens.size() - (reverseIndex + 1));
         }
 
     }
 
-    private TypeReference parseType(final String name, final Map<String, ?> map) {
+    private TypeReference parseType(final String namespace, final List<String> parents, final String name, final Map<String, ?> map) {
         final Optional<String> ref = asOptionalString("$ref", map);
 
         if (ref.isPresent()) {
@@ -164,13 +170,22 @@ public class YamlParser {
             final Reference to = Reference.parse(ref.get());
 
             // FIXME: validate full ref syntax
-            return new TypeReference(to.last());
+
+            return new TypeReference(mapPackageName(to.last(1)), to.last());
         } else {
-            return parseExplicitType(name, map);
+            return parseExplicitType(namespace, parents, name, map);
         }
     }
 
-    private Type parseExplicitType(final String name, final Map<String, ?> map) {
+    private String mapPackageName(final String type) {
+        if ("schemas".equals(type)) {
+            return "types";
+        }
+        return type;
+    }
+
+    private Type parseExplicitType(final String namespace, final List<String> parents, final String name, final Map<String, ?> map) {
+
         final String type = asString("type", map);
         switch (type) {
         case "boolean":
@@ -181,19 +196,38 @@ public class YamlParser {
             return addCommonTypeInfo(new CoreType(name, Double.class), map);
         case "string": {
             if (map.containsKey("enum")) {
-                return addCommonTypeInfo(parseEnumType(name, map), map);
+                return addCommonTypeInfo(parseEnumType(namespace, parents, name, map), map);
             }
             return addCommonTypeInfo(parseCoreType(name, map), map);
         }
+        case "array":
+            return addCommonTypeInfo(parseArrayType(namespace, parents, name, map), map);
         case "object":
-            return addCommonTypeInfo(parseObjectType(name, map), map);
+            return addCommonTypeInfo(parseObjectType(namespace, parents, name, map), map);
         default:
             throw new IllegalStateException(String.format("Unsupported type: %s", type));
         }
     }
 
-    private Type parseEnumType(final String name, final Map<String, ?> map) {
-        final EnumType type = new EnumType(name);
+    private static List<String> push(final List<String> parents, final String name) {
+        final List<String> result = new ArrayList<>(parents);
+        result.add(name);
+        return result;
+    }
+
+    private Type parseArrayType(final String namespace, final List<String> parents, final String name, final Map<String, ?> map) {
+
+        final boolean uniqueItems = Consume.asBoolean(map, "uniqueItems");
+
+        final TypeReference itemType = parseType(namespace, parents, name + "Item", asMap("items", map));
+
+        final ArrayType type = new ArrayType(name, itemType, uniqueItems);
+
+        return type;
+    }
+
+    private Type parseEnumType(final String namespace, final List<String> parents, final String name, final Map<String, ?> map) {
+        final EnumType type = new EnumType(namespace, parents, name);
 
         type.setLiterals(asSet("enum", map));
 
@@ -216,8 +250,8 @@ public class YamlParser {
         }
     }
 
-    private Type parseObjectType(final String name, final Map<String, ?> map) {
-        final ObjectType type = new ObjectType(name);
+    private Type parseObjectType(final String namespace, final List<String> parents, final String name, final Map<String, ?> map) {
+        final ObjectType type = new ObjectType(namespace, parents, name);
 
         final Set<String> required = asOptionalSet("required", map).orElse(Collections.emptySet());
 
@@ -232,7 +266,7 @@ public class YamlParser {
             p.setName(propName);
             p.setDescription(asOptionalString("description", propValues).orElse(null));
             p.setRequired(required.contains(propName));
-            p.setType(parseType(entry.getKey(), propValues));
+            p.setType(parseType(namespace, push(parents, name), entry.getKey(), propValues));
 
             type.getProperties().add(p);
         }
@@ -290,7 +324,7 @@ public class YamlParser {
         message.setDescription(asOptionalString("description", map).orElse(null));
         message.setSummary(asOptionalString("summary", map).orElse(null));
 
-        message.setPayload(parseType("payload", asMap("payload", map)));
+        message.setPayload(parseType("messages", Collections.singletonList(name), "payload", asMap("payload", map)));
 
         this.messages.put(name, message);
         return message;
