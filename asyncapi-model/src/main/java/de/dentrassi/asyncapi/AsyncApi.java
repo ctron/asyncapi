@@ -112,7 +112,7 @@ public class AsyncApi {
      *             in case the document cannot be parsed
      */
     public static AsyncApi parseYaml(final InputStream in) throws ParserException {
-        return new YamlParser(in).parse();
+        return validate(new YamlParser(in).parse());
     }
 
     /**
@@ -125,7 +125,7 @@ public class AsyncApi {
      *             in case the document cannot be parsed
      */
     public static AsyncApi parseYaml(final Reader reader) throws ParserException {
-        return new YamlParser(reader).parse();
+        return validate(new YamlParser(reader).parse());
     }
 
     /**
@@ -139,9 +139,21 @@ public class AsyncApi {
      */
     public static AsyncApi parseYaml(final Path path) throws ParserException {
         try (final InputStream in = Files.newInputStream(path)) {
-            return new YamlParser(in).parse();
+            return validate(new YamlParser(in).parse());
         } catch (final IOException e) {
             throw new ParserException("Failed to read file", e);
         }
+    }
+
+    public static AsyncApi validate(final AsyncApi api) {
+
+        final Validator validator = new Validator();
+        validator.validate(api);
+
+        if (validator.hasErrors()) {
+            throw new ValidationException(validator.getMarkers());
+        }
+
+        return api;
     }
 }

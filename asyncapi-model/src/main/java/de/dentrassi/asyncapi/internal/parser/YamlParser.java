@@ -86,7 +86,7 @@ public class YamlParser {
 
         final AsyncApi api = new AsyncApi();
 
-        api.setBaseTopic(asString("baseTopic", this.document));
+        api.setBaseTopic(asOptionalString("baseTopic", this.document).orElse(null));
         api.setHost(asString("host", this.document));
         api.setSchemes(asSet("schemes", this.document));
         api.setInformation(parseInfo(asMap("info", this.document)));
