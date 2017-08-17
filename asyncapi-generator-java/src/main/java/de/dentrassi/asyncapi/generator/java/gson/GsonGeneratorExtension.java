@@ -24,7 +24,7 @@ import org.eclipse.jdt.core.dom.NormalAnnotation;
 import de.dentrassi.asyncapi.generator.java.GeneratorExtension;
 import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
 
-public class GsonGenerator implements GeneratorExtension {
+public class GsonGeneratorExtension implements GeneratorExtension {
     @SuppressWarnings("unchecked")
     @Override
     public void createdEnumLiteral(final String literal, final EnumConstantDeclaration enumConstantDeclaration) {

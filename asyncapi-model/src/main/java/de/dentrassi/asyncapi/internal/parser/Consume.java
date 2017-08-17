@@ -17,7 +17,7 @@
 package de.dentrassi.asyncapi.internal.parser;
 
 import java.util.Collection;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -98,7 +98,7 @@ public final class Consume {
         }
 
         if (value instanceof Collection<?>) {
-            return Optional.of(new HashSet<>((Collection<String>) value));
+            return Optional.of(new LinkedHashSet<>((Collection<String>) value));
         }
 
         throw wrongTypeError(key, Collection.class, value);

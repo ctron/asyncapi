@@ -19,6 +19,9 @@ package de.dentrassi.asyncapi.gson;
 import java.io.Serializable;
 import java.util.Objects;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -28,6 +31,8 @@ import de.dentrassi.asyncapi.gson.time.DateTimeAdapterFactory;
 import de.dentrassi.asyncapi.gson.time.DateTimeStrategy;
 
 public class GsonPayloadFormat implements TextPayloadFormat {
+
+    private static final Logger logger = LoggerFactory.getLogger(GsonPayloadFormat.class);
 
     private final Gson gson;
 
@@ -68,6 +73,7 @@ public class GsonPayloadFormat implements TextPayloadFormat {
 
     @Override
     public <M extends Message<P>, P extends Serializable> M decode(final Class<M> clazz, final Class<P> payloadClazz, final String message) throws Exception {
+        logger.debug("Decoding JSON: {}", message);
         final M m = clazz.newInstance();
         m.setPayload(this.gson.fromJson(message, payloadClazz));
         return m;

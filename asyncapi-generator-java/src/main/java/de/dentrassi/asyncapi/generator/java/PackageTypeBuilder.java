@@ -280,6 +280,7 @@ public class PackageTypeBuilder implements TypeBuilder {
                 md.setName(ast.newSimpleName("toString"));
                 JDTHelper.makePublic(md);
                 JDTHelper.addSimpleAnnotation(md, "Override");
+                md.setReturnType2(ast.newSimpleType(ast.newSimpleName("String")));
 
                 final Block body = ast.newBlock();
                 md.setBody(body);

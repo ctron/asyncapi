@@ -687,13 +687,13 @@ public class Generator {
                 (literal, decl) -> fireExtensions(extension -> extension.createdEnumLiteral(literal, decl)), true);
     }
 
-    private <T> void fireExtensions(final Consumer<GeneratorExtension> consumer) {
+    protected <T> void fireExtensions(final Consumer<GeneratorExtension> consumer) {
         for (final GeneratorExtension extension : this.extensions) {
             consumer.accept(extension);
         }
     }
 
-    private <T> void fireExtensions(final T literal, final BiConsumer<GeneratorExtension, T> consumer) {
+    protected <T> void fireExtensions(final T literal, final BiConsumer<GeneratorExtension, T> consumer) {
         for (final GeneratorExtension extension : this.extensions) {
             consumer.accept(extension, literal);
         }

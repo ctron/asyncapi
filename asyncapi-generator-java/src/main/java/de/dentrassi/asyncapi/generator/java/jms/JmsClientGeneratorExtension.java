@@ -57,7 +57,7 @@ import de.dentrassi.asyncapi.generator.java.TypeInformation;
 import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
 import de.dentrassi.asyncapi.generator.java.util.Names;
 
-public class JmsClientGenerator implements GeneratorExtension {
+public class JmsClientGeneratorExtension implements GeneratorExtension {
 
     private static final String TYPE_NAME_ABSTRACT_JMS_CLIENT = "de.dentrassi.asyncapi.jms.AbstractJmsClient";
 

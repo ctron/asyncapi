@@ -23,8 +23,8 @@ import java.nio.file.Paths;
 
 import de.dentrassi.asyncapi.AsyncApi;
 import de.dentrassi.asyncapi.generator.java.Generator.Builder;
-import de.dentrassi.asyncapi.generator.java.gson.GsonGenerator;
-import de.dentrassi.asyncapi.generator.java.jms.JmsClientGenerator;
+import de.dentrassi.asyncapi.generator.java.gson.GsonGeneratorExtension;
+import de.dentrassi.asyncapi.generator.java.jms.JmsClientGeneratorExtension;
 import de.dentrassi.asyncapi.internal.parser.YamlParser;
 
 public class Application1 {
@@ -39,8 +39,8 @@ public class Application1 {
 
             builder.targetPath(Paths.get("target/generated"));
 
-            builder.addExtension(new JmsClientGenerator());
-            builder.addExtension(new GsonGenerator());
+            builder.addExtension(new JmsClientGeneratorExtension());
+            builder.addExtension(new GsonGeneratorExtension());
 
             builder.build(api).generate();
         }
