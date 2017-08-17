@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -682,7 +683,20 @@ public class Generator {
     }
 
     private void generateEnum(final EnumType type, final TypeBuilder builder) {
-        builder.createEnum(new TypeInformation(asTypeName(type.getName()), type.getTitle(), type.getDescription()), type.getLiterals());
+        builder.createEnum(new TypeInformation(asTypeName(type.getName()), type.getTitle(), type.getDescription()), type.getLiterals(),
+                (literal, decl) -> fireExtensions(extension -> extension.createdEnumLiteral(literal, decl)), true);
+    }
+
+    private <T> void fireExtensions(final Consumer<GeneratorExtension> consumer) {
+        for (final GeneratorExtension extension : this.extensions) {
+            consumer.accept(extension);
+        }
+    }
+
+    private <T> void fireExtensions(final T literal, final BiConsumer<GeneratorExtension, T> consumer) {
+        for (final GeneratorExtension extension : this.extensions) {
+            consumer.accept(extension, literal);
+        }
     }
 
     private String packageName(final String local) {

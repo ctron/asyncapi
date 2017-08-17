@@ -16,6 +16,8 @@
 
 package de.dentrassi.asyncapi.generator.java;
 
+import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
+
 import de.dentrassi.asyncapi.AsyncApi;
 import de.dentrassi.asyncapi.generator.java.Generator.Context;
 import de.dentrassi.asyncapi.generator.java.Generator.Options;
@@ -23,6 +25,10 @@ import de.dentrassi.asyncapi.generator.java.Generator.Options;
 public interface GeneratorExtension {
 
     public default void generate(final AsyncApi api, final Options options, final Context context) {
+    }
+
+    public default void createdEnumLiteral(final String literal, final EnumConstantDeclaration enumConstantDeclaration) {
+
     }
 
 }

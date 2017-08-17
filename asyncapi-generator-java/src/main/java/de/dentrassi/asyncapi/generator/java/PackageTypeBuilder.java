@@ -57,6 +57,7 @@ import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
 import de.dentrassi.asyncapi.Type;
 import de.dentrassi.asyncapi.TypeReference;
+import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
 import de.dentrassi.asyncapi.generator.java.util.Names;
 
 @SuppressWarnings("unchecked")
@@ -93,8 +94,9 @@ public class PackageTypeBuilder implements TypeBuilder {
         }
 
         @Override
-        public void createEnum(final TypeInformation type, final Set<String> literals) {
-            final EnumDeclaration ed = PackageTypeBuilder.createEnum(this.ast, this.cu, type, literals);
+        public void createEnum(final TypeInformation type, final Set<String> literals, final BiConsumer<String, EnumConstantDeclaration> constantCustomizer,
+                final boolean withOriginalValues) {
+            final EnumDeclaration ed = PackageTypeBuilder.createEnum(this.ast, this.cu, type, literals, constantCustomizer, withOriginalValues);
             this.td.bodyDeclarations().add(ed);
             makeStatic(ed);
         }
@@ -182,11 +184,9 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     @Override
-    public void createEnum(final TypeInformation type, final Set<String> literals) {
-        createNew(type.getName(), (ast, cu) -> {
-            final EnumDeclaration ed = createEnum(ast, cu, type, literals);
-            cu.types().add(ed);
-        });
+    public void createEnum(final TypeInformation type, final Set<String> literals, final BiConsumer<String, EnumConstantDeclaration> constantCustomizer,
+            final boolean withOriginalValues) {
+        createNew(type.getName(), (ast, cu) -> cu.types().add(createEnum(ast, cu, type, literals, constantCustomizer, withOriginalValues)));
     }
 
     @Override
@@ -215,7 +215,8 @@ public class PackageTypeBuilder implements TypeBuilder {
         return td;
     }
 
-    private static EnumDeclaration createEnum(final AST ast, final CompilationUnit cu, final TypeInformation type, final Set<String> literals) {
+    private static EnumDeclaration createEnum(final AST ast, final CompilationUnit cu, final TypeInformation type, final Set<String> literals,
+            final BiConsumer<String, EnumConstantDeclaration> constantCustomizer, final boolean withOriginalValues) {
         final EnumDeclaration ed = ast.newEnumDeclaration();
 
         addJavadoc(ast, type, ed);
@@ -225,8 +226,72 @@ public class PackageTypeBuilder implements TypeBuilder {
 
         for (final String literal : literals) {
             final EnumConstantDeclaration l = ast.newEnumConstantDeclaration();
+
             l.setName(ast.newSimpleName(asConstantName(literal)));
+            if (withOriginalValues) {
+                l.arguments().add(JDTHelper.newStringLiteral(ast, literal));
+            }
+
             ed.enumConstants().add(l);
+
+            if (constantCustomizer != null) {
+                constantCustomizer.accept(literal, l);
+            }
+        }
+
+        if (withOriginalValues) {
+
+            // field
+
+            ed.bodyDeclarations().add(JDTHelper.createField(ast, "String", "value", ModifierKeyword.PRIVATE_KEYWORD, ModifierKeyword.FINAL_KEYWORD));
+
+            // constructor
+
+            {
+                final MethodDeclaration md = ast.newMethodDeclaration();
+                ed.bodyDeclarations().add(md);
+
+                md.setConstructor(true);
+                JDTHelper.makePrivate(md);
+                md.setName(ast.newSimpleName(type.getName()));
+
+                md.parameters().add(JDTHelper.createParameter(ast, "String", "value", ModifierKeyword.FINAL_KEYWORD));
+
+                final Block body = ast.newBlock();
+                md.setBody(body);
+
+                final Assignment as = ast.newAssignment();
+                final FieldAccess fa = ast.newFieldAccess();
+                fa.setExpression(ast.newThisExpression());
+                fa.setName(ast.newSimpleName("value"));
+                as.setLeftHandSide(fa);
+
+                as.setRightHandSide(ast.newSimpleName("value"));
+
+                body.statements().add(ast.newExpressionStatement(as));
+            }
+
+            // toString
+
+            {
+                final MethodDeclaration md = ast.newMethodDeclaration();
+                ed.bodyDeclarations().add(md);
+
+                md.setName(ast.newSimpleName("toString"));
+                JDTHelper.makePublic(md);
+                JDTHelper.addSimpleAnnotation(md, "Override");
+
+                final Block body = ast.newBlock();
+                md.setBody(body);
+
+                final ReturnStatement ret = ast.newReturnStatement();
+                body.statements().add(ret);
+
+                final FieldAccess fa = ast.newFieldAccess();
+                fa.setExpression(ast.newThisExpression());
+                fa.setName(ast.newSimpleName("value"));
+                ret.setExpression(fa);
+            }
 
         }
 

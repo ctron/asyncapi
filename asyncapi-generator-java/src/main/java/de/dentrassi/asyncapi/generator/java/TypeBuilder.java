@@ -19,12 +19,14 @@ package de.dentrassi.asyncapi.generator.java;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
@@ -43,7 +45,7 @@ public interface TypeBuilder {
 
     public void createType(TypeInformation type, Consumer<TypeDeclaration> typeCustomizer, Consumer<TypeBuilder> consumer);
 
-    public void createEnum(TypeInformation type, Set<String> literals);
+    public void createEnum(TypeInformation type, Set<String> literals, BiConsumer<String, EnumConstantDeclaration> constantCustomizer, boolean withOriginalValues);
 
     public void createProperty(PropertyInformation property);
 

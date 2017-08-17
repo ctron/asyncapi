@@ -22,11 +22,13 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.BodyDeclaration;
 import org.eclipse.jdt.core.dom.CatchClause;
+import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.MarkerAnnotation;
 import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.StringLiteral;
 import org.eclipse.jdt.core.dom.TextElement;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
 @SuppressWarnings("unchecked")
 public final class JDTHelper {
@@ -79,12 +81,21 @@ public final class JDTHelper {
         make(decl, ModifierKeyword.PRIVATE_KEYWORD);
     }
 
-    public static SingleVariableDeclaration createParameter(final AST ast, final String typeName, final String parameterName, final ModifierKeyword... keywords) {
+    public static SingleVariableDeclaration createParameter(final AST ast, final String typeName, final String name, final ModifierKeyword... keywords) {
         final SingleVariableDeclaration arg = ast.newSingleVariableDeclaration();
-        arg.setName(ast.newSimpleName(parameterName));
+        arg.setName(ast.newSimpleName(name));
         arg.setType(ast.newSimpleType(ast.newName(typeName)));
         make(arg, keywords);
         return arg;
+    }
+
+    public static FieldDeclaration createField(final AST ast, final String typeName, final String name, final ModifierKeyword... keywords) {
+        final VariableDeclarationFragment vdf = ast.newVariableDeclarationFragment();
+        vdf.setName(ast.newSimpleName(name));
+        final FieldDeclaration fd = ast.newFieldDeclaration(vdf);
+        make(fd, keywords);
+        fd.setType(ast.newSimpleType(ast.newName(typeName)));
+        return fd;
     }
 
     public static void addSimpleAnnotation(final BodyDeclaration decl, final String name) {
