@@ -19,6 +19,8 @@ package de.dentrassi.asyncapi.generator.java;
 import org.junit.Assert;
 import org.junit.Test;
 
+import de.dentrassi.asyncapi.generator.java.util.Version;
+
 public class VersionTest {
 
     @Test

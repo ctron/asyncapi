@@ -16,12 +16,17 @@
 
 package de.dentrassi.asyncapi.generator.java;
 
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makePublic;
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makeStatic;
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.newText;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -29,6 +34,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.Assignment.Operator;
 import org.eclipse.jdt.core.dom.Block;
@@ -46,12 +52,12 @@ import org.eclipse.jdt.core.dom.PackageDeclaration;
 import org.eclipse.jdt.core.dom.ReturnStatement;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.TagElement;
-import org.eclipse.jdt.core.dom.TextElement;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
 import de.dentrassi.asyncapi.Type;
 import de.dentrassi.asyncapi.TypeReference;
+import de.dentrassi.asyncapi.generator.java.util.Names;
 
 @SuppressWarnings("unchecked")
 public class PackageTypeBuilder implements TypeBuilder {
@@ -71,21 +77,19 @@ public class PackageTypeBuilder implements TypeBuilder {
         }
 
         @Override
-        public void createMethod(final BiFunction<AST, CompilationUnit, MethodDeclaration> consumer) {
-            final MethodDeclaration result = consumer.apply(this.ast, this.cu);
+        public void createBodyContent(final BiFunction<AST, CompilationUnit, ASTNode> consumer) {
+            final ASTNode result = consumer.apply(this.ast, this.cu);
             if (result != null) {
                 this.td.bodyDeclarations().add(result);
             }
         }
 
         @Override
-        public void createType(final TypeInformation type, final boolean iface, final boolean serializable, final Consumer<TypeBuilder> consumer) {
-            final TypeDeclaration td = PackageTypeBuilder.createType(this.ast, this.cu, iface, serializable, type);
+        public void createType(final TypeInformation type, final Consumer<TypeDeclaration> typeCustomizer, final Consumer<TypeBuilder> consumer) {
+            final TypeDeclaration td = PackageTypeBuilder.createType(this.ast, this.cu, typeCustomizer, type);
             this.td.bodyDeclarations().add(td);
 
             consumer.accept(new ClassTypeBuilder(this.ast, this.cu, td, this.typeLookup));
-
-            makeStatic(td);
         }
 
         @Override
@@ -112,14 +116,6 @@ public class PackageTypeBuilder implements TypeBuilder {
         this.packageName = packageName;
         this.rootPath = root;
         this.typeLookup = typeLookup;
-    }
-
-    public static void makeStatic(final BodyDeclaration decl) {
-        decl.modifiers().add(decl.getAST().newModifier(ModifierKeyword.STATIC_KEYWORD));
-    }
-
-    public static void makePublic(final BodyDeclaration decl) {
-        decl.modifiers().add(decl.getAST().newModifier(ModifierKeyword.PUBLIC_KEYWORD));
     }
 
     public static String asTypeName(final String name) {
@@ -170,8 +166,16 @@ public class PackageTypeBuilder implements TypeBuilder {
 
     @Override
     public void createType(final TypeInformation type, final boolean iface, final boolean serializable, final Consumer<TypeBuilder> consumer) {
+        final Consumer<TypeDeclaration> typeCustomizer = TypeBuilder.asInterface(iface) //
+                .andThen(TypeBuilder.superInterfaces(serializable ? Collections.singletonList("java.io.Serializable") : Collections.emptyList()));
+
+        createType(type, typeCustomizer, consumer);
+    }
+
+    @Override
+    public void createType(final TypeInformation type, final Consumer<TypeDeclaration> typeCustomizer, final Consumer<TypeBuilder> consumer) {
         createNew(type.getName(), (ast, cu) -> {
-            final TypeDeclaration td = createType(ast, cu, iface, serializable, type);
+            final TypeDeclaration td = createType(ast, cu, typeCustomizer, type);
             cu.types().add(td);
             consumer.accept(new ClassTypeBuilder(ast, cu, td, this.typeLookup));
         });
@@ -191,27 +195,22 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     @Override
-    public void createMethod(final BiFunction<AST, CompilationUnit, MethodDeclaration> consumer) {
-        throw new IllegalStateException("Unable to create method on package level");
+    public void createBodyContent(final BiFunction<AST, CompilationUnit, ASTNode> consumer) {
+        throw new IllegalStateException("Unable to create body content on package level");
     }
 
-    private static TypeDeclaration createType(final AST ast, final CompilationUnit cu, final boolean iface, final boolean serializable, final TypeInformation type) {
+    private static TypeDeclaration createType(final AST ast, final CompilationUnit cu, final Consumer<TypeDeclaration> typeCustomizer, final TypeInformation type) {
         final TypeDeclaration td = ast.newTypeDeclaration();
-        td.setInterface(iface);
 
-        if (serializable) {
-            final org.eclipse.jdt.core.dom.Type superclassType = ast.newSimpleType(ast.newName("java.io.Serializable"));
-            if (iface) {
-                td.setSuperclassType(superclassType);
-            } else {
-                td.superInterfaceTypes().add(superclassType);
-            }
+        makePublic(td);
+
+        if (typeCustomizer != null) {
+            typeCustomizer.accept(td);
         }
 
         addJavadoc(ast, type, td);
 
         td.setName(ast.newSimpleName(type.getName()));
-        makePublic(td);
 
         return td;
     }
@@ -349,12 +348,6 @@ public class PackageTypeBuilder implements TypeBuilder {
         }
 
         return doc;
-    }
-
-    public static Object newText(final AST ast, final String text) {
-        final TextElement element = ast.newTextElement();
-        element.setText(text);
-        return element;
     }
 
 }

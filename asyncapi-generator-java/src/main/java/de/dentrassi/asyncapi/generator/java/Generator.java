@@ -18,19 +18,25 @@ package de.dentrassi.asyncapi.generator.java;
 
 import static de.dentrassi.asyncapi.generator.java.PackageTypeBuilder.asPropertyName;
 import static de.dentrassi.asyncapi.generator.java.PackageTypeBuilder.asTypeName;
-import static java.util.Arrays.asList;
-import static java.util.Optional.empty;
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makeProtected;
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makePublic;
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.newStringLiteral;
+import static de.dentrassi.asyncapi.generator.java.util.Names.makeVersion;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -47,7 +53,9 @@ import org.eclipse.jdt.core.dom.ReturnStatement;
 import org.eclipse.jdt.core.dom.SimpleType;
 import org.eclipse.jdt.core.dom.StringLiteral;
 import org.eclipse.jdt.core.dom.TagElement;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.TypeLiteral;
+import org.eclipse.jdt.core.dom.TypeParameter;
 
 import de.dentrassi.asyncapi.AsyncApi;
 import de.dentrassi.asyncapi.CoreType;
@@ -60,8 +68,108 @@ import de.dentrassi.asyncapi.Property;
 import de.dentrassi.asyncapi.Topic;
 import de.dentrassi.asyncapi.Type;
 import de.dentrassi.asyncapi.TypeReference;
+import de.dentrassi.asyncapi.generator.java.ServiceDefinitions.VersionedService;
+import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
 
 public class Generator {
+
+    public static final class Options {
+        private Path targetPath;
+        private Charset characterSet = StandardCharsets.UTF_8;
+        private String basePackage;
+
+        private Options() {
+        }
+
+        private Options(final Options other) {
+            this.targetPath = other.targetPath;
+            this.characterSet = other.characterSet;
+            this.basePackage = other.basePackage;
+        }
+
+        public String getBasePackage() {
+            return this.basePackage;
+        }
+
+        public Charset getCharacterSet() {
+            return this.characterSet;
+        }
+
+        public Path getTargetPath() {
+            return this.targetPath;
+        }
+
+        private void validate(final List<Exception> errors) {
+            if (this.targetPath == null) {
+                errors.add(new IllegalStateException("'targetPath' is not set"));
+            }
+        }
+    }
+
+    public static final class Builder {
+
+        private final Options options = new Options();
+
+        private boolean validateTopicSyntax = true;
+
+        private final Set<GeneratorExtension> extensions = new HashSet<>();
+
+        private Builder() {
+        }
+
+        public void addExtension(final GeneratorExtension extension) {
+            Objects.requireNonNull(extension);
+
+            this.extensions.add(extension);
+        }
+
+        public Builder validateTopicSyntax(final boolean validateTopicSyntax) {
+            this.validateTopicSyntax = validateTopicSyntax;
+            return this;
+        }
+
+        public Builder targetPath(final Path targetPath) {
+            Objects.requireNonNull(targetPath);
+
+            this.options.targetPath = targetPath;
+            return this;
+        }
+
+        public Builder basePackage(final String basePackage) {
+            this.options.basePackage = basePackage;
+            return this;
+        }
+
+        public Builder characterSet(final Charset characterSet) {
+            this.options.characterSet = characterSet;
+            return this;
+        }
+
+        public Generator build(final AsyncApi api) {
+
+            final LinkedList<Exception> errors = new LinkedList<>();
+            this.options.validate(errors);
+
+            if (!errors.isEmpty()) {
+                final RuntimeException e = new RuntimeException("Invalid generator settings", errors.pollFirst());
+                errors.stream().forEach(e::addSuppressed);
+                throw e;
+            }
+
+            return new Generator(api, new Options(this.options), this.validateTopicSyntax, new ArrayList<>(this.extensions));
+        }
+    }
+
+    public interface Context {
+        public TypeBuilder createTypeBuilder(final String localPackageName);
+
+        public String fullQualifiedName(String localName);
+
+        public ServiceDefinitions getServiceDefinitions();
+    }
+
+    private static final String MESSAGE_IFACE_TYPE_NAME = "de.dentrassi.asyncapi.Message";
+
     private static final String PUBSUB_CLASS_TYPE_NAME = "de.dentrassi.asyncapi.PublishSubscribe";
 
     private static final String SUB_CLASS_TYPE_NAME = "de.dentrassi.asyncapi.Subscribe";
@@ -70,106 +178,85 @@ public class Generator {
 
     private static final String TOPIC_ANN_TYPE_NAME = "de.dentrassi.asyncapi.Topic";
 
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
     private final AsyncApi api;
-    private Path target;
-    private Charset characterSet = StandardCharsets.UTF_8;
-    private String basePackage;
-    private boolean validateTopicSyntax = true;
+    private final boolean validateTopicSyntax;
+    private List<GeneratorExtension> extensions = new ArrayList<>();
 
-    public Generator(final AsyncApi api) {
+    private final Options options;
+
+    private final Context context = new Context() {
+        @Override
+        public TypeBuilder createTypeBuilder(final String localPackageName) {
+            return Generator.this.createTypeBuilder(localPackageName);
+        }
+
+        @Override
+        public String fullQualifiedName(final String localName) {
+            return packageName(localName);
+        }
+
+        @Override
+        public ServiceDefinitions getServiceDefinitions() {
+            return Generator.this.serviceDefinitions;
+        }
+    };
+
+    private final ServiceDefinitions serviceDefinitions;
+
+    private Generator(final AsyncApi api, final Options options, final boolean validateTopicSyntax, final List<GeneratorExtension> extensions) {
         this.api = api;
-    }
-
-    public Generator basePackage(final String basePackage) {
-        this.basePackage = basePackage;
-        return this;
-    }
-
-    public Generator target(final Path target) {
-        this.target = target;
-        return this;
-    }
-
-    public Generator characterSet(final Charset characterSet) {
-        this.characterSet = characterSet;
-        return this;
-    }
-
-    public Generator validateTopicSyntax(final boolean validateTopicSyntax) {
+        this.options = options;
         this.validateTopicSyntax = validateTopicSyntax;
-        return this;
+        this.extensions = extensions;
+
+        this.serviceDefinitions = ServiceDefinitions.build(this.api, this.validateTopicSyntax);
     }
 
     public void generate() throws IOException {
-        Files.createDirectories(this.target);
+        Files.createDirectories(this.options.getTargetPath());
 
         generateRoot();
         generateMessages();
         generateTypes();
         generateTopics();
+
+        for (final GeneratorExtension extension : this.extensions) {
+            extension.generate(this.api, this.options, this.context);
+        }
     }
 
     private void generateTopics() {
-
-        // prepare
-
-        final Map<Topic, TopicInformation> topics = new LinkedHashMap<>(this.api.getTopics().size());
-        final Map<String, Map<String, List<Topic>>> versions = new HashMap<>();
-
-        for (final Topic topic : this.api.getTopics()) {
-
-            TopicInformation ti;
-            try {
-                ti = TopicInformation.fromString(topic.getName());
-            } catch (final IllegalArgumentException e) {
-                if (this.validateTopicSyntax) {
-                    throw e;
-                }
-                // fall back to default
-                ti = new TopicInformation("Topics", "1", "event", new LinkedList<>(asList(topic.getName().split("\\."))), "send", empty());
-            }
-
-            addTopic(versions, ti, topic);
-            topics.put(topic, ti);
-        }
-
-        renderServices(topics, versions);
-        renderClient(topics, versions);
+        renderServices();
+        renderClient();
     }
 
-    private static class NewestService {
-        private final TypeInformation type;
-        private final Version version;
-
-        public NewestService(final TypeInformation type, final Version version) {
-            this.type = type;
-            this.version = version;
-        }
-
-        public TypeInformation getType() {
-            return this.type;
-        }
-
-        public Version getVersion() {
-            return this.version;
-        }
+    private TypeBuilder createTypeBuilder(final String localPackageName) {
+        return new PackageTypeBuilder(this.options.getTargetPath(), packageName(localPackageName), this.options.getCharacterSet(), type -> null);
     }
 
-    private void renderClient(final Map<Topic, TopicInformation> topics, final Map<String, Map<String, List<Topic>>> versions) {
+    private void renderClient() {
 
-        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName(null), this.characterSet, type -> null);
-        builder.createType(new TypeInformation("Client", null, null), true, false, b -> {
+        final TypeBuilder builder = createTypeBuilder(null);
 
-            final Map<String, NewestService> latest = new HashMap<>();
+        final Consumer<TypeDeclaration> typeCustomizer = TypeBuilder.asInterface(true) //
+                .andThen(TypeBuilder.superInterfaces(Arrays.asList("de.dentrassi.asyncapi.client.Client")));
 
-            for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : versions.entrySet()) {
+        builder.createType(new TypeInformation("Client", null, null), typeCustomizer, b -> {
+
+            renderDefaultClientBuilder(b);
+
+            for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : this.serviceDefinitions.getVersions().entrySet()) {
                 final String version = makeVersion(versionEntry.getKey());
 
                 b.createType(new TypeInformation(version.toUpperCase(), null, null), true, false, vb -> {
 
                     for (final Map.Entry<String, List<Topic>> serviceEntry : versionEntry.getValue().entrySet()) {
 
-                        final TypeInformation serviceType = createServiceType(serviceEntry);
+                        final TypeInformation serviceType = createServiceTypeInformation(serviceEntry);
 
                         vb.createMethod((ast, cu) -> {
                             final MethodDeclaration md = ast.newMethodDeclaration();
@@ -177,14 +264,6 @@ public class Generator {
                             md.setReturnType2(ast.newSimpleType(ast.newName(packageName(version + "." + serviceType.getName()))));
                             return md;
                         });
-
-                        // record latest version
-
-                        final Version v = Version.valueOf(versionEntry.getKey());
-                        final NewestService lv = latest.get(serviceType.getName());
-                        if (lv == null || v.compareTo(lv.getVersion()) > 0) {
-                            latest.put(serviceType.getName(), new NewestService(serviceType, v));
-                        }
 
                     }
 
@@ -203,7 +282,7 @@ public class Generator {
 
             // create latest versions
 
-            for (final Map.Entry<String, NewestService> latestEntry : latest.entrySet()) {
+            for (final Map.Entry<String, VersionedService> latestEntry : this.serviceDefinitions.getLatest().entrySet()) {
                 b.createMethod((ast, cu) -> {
                     return createReturnLatestVersionService(latestEntry, ast);
                 });
@@ -214,7 +293,80 @@ public class Generator {
     }
 
     @SuppressWarnings("unchecked")
-    private MethodDeclaration createReturnLatestVersionService(final Map.Entry<String, NewestService> latestEntry, final AST ast) {
+    private static ParameterizedType parametrizeSimple(final org.eclipse.jdt.core.dom.Type original, final String... parameters) {
+        final AST ast = original.getAST();
+
+        final ParameterizedType result = ast.newParameterizedType(original);
+
+        for (final String name : parameters) {
+            final SimpleType type = ast.newSimpleType(ast.newSimpleName(name));
+            result.typeArguments().add(type);
+        }
+
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void renderDefaultClientBuilder(final TypeBuilder builder) {
+
+        Consumer<TypeDeclaration> typeCustomizer = td -> {
+            final AST ast = td.getAST();
+
+            final SimpleType st = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.client.Client.Builder"));
+
+            td.setSuperclassType(parametrizeSimple(st, "B", "C"));
+        };
+
+        typeCustomizer = typeCustomizer.andThen(td -> {
+            final AST ast = td.getAST();
+
+            final TypeParameter b = ast.newTypeParameter();
+            b.setName(ast.newSimpleName("B"));
+            b.typeBounds().add(parametrizeSimple(ast.newSimpleType(ast.newSimpleName("Builder")), "B", "C"));
+
+            final TypeParameter c = ast.newTypeParameter();
+            c.setName(ast.newSimpleName("C"));
+            c.typeBounds().add(ast.newSimpleType(ast.newSimpleName("Client")));
+
+            td.typeParameters().add(b);
+            td.typeParameters().add(c);
+        });
+
+        typeCustomizer = typeCustomizer.andThen(td -> JDTHelper.make(td, ModifierKeyword.STATIC_KEYWORD, ModifierKeyword.ABSTRACT_KEYWORD));
+
+        builder.createType(new TypeInformation("Builder", null, null), typeCustomizer, b -> {
+
+            b.createMethod((ast, cu) -> {
+                final MethodDeclaration md = ast.newMethodDeclaration();
+                md.setConstructor(true);
+                md.setName(ast.newSimpleName("Builder"));
+                makeProtected(md);
+
+                final Block body = ast.newBlock();
+                md.setBody(body);
+
+                if (this.api.getHost() != null && !this.api.getHost().isEmpty()) {
+                    final MethodInvocation mi = ast.newMethodInvocation();
+                    mi.setName(ast.newSimpleName("host"));
+                    mi.arguments().add(newStringLiteral(ast, this.api.getHost()));
+                    body.statements().add(ast.newExpressionStatement(mi));
+                }
+
+                if (this.api.getBaseTopic() != null && !this.api.getBaseTopic().isEmpty()) {
+                    final MethodInvocation mi = ast.newMethodInvocation();
+                    mi.setName(ast.newSimpleName("baseTopic"));
+                    mi.arguments().add(newStringLiteral(ast, this.api.getBaseTopic()));
+                    body.statements().add(ast.newExpressionStatement(mi));
+                }
+
+                return md;
+            });
+
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private MethodDeclaration createReturnLatestVersionService(final Map.Entry<String, VersionedService> latestEntry, final AST ast) {
         final String version = makeVersion(latestEntry.getValue().getVersion().toString());
         final String serviceType = packageName(version + "." + latestEntry.getValue().getType().getName());
 
@@ -244,19 +396,19 @@ public class Generator {
     }
 
     @SuppressWarnings("unchecked")
-    private void renderServices(final Map<Topic, TopicInformation> topics, final Map<String, Map<String, List<Topic>>> versions) {
-        for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : versions.entrySet()) {
+    private void renderServices() {
+        for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : this.serviceDefinitions.getVersions().entrySet()) {
 
             final String version = makeVersion(versionEntry.getKey());
-            final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName(version), this.characterSet, type -> null);
+            final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName(version), this.options.getCharacterSet(), type -> null);
 
             for (final Map.Entry<String, List<Topic>> serviceEntry : versionEntry.getValue().entrySet()) {
-                builder.createType(createServiceType(serviceEntry), true, false, b -> {
+                builder.createType(createServiceTypeInformation(serviceEntry), true, false, b -> {
 
                     for (final Topic topic : serviceEntry.getValue()) {
                         b.createMethod((ast, cu) -> {
 
-                            final TopicInformation ti = topics.get(topic);
+                            final TopicInformation ti = this.serviceDefinitions.getTopics().get(topic);
 
                             // new method
 
@@ -267,7 +419,7 @@ public class Generator {
 
                             // set return type
 
-                            md.setReturnType2(evalEventMethodType(ast, topic));
+                            md.setReturnType2(evalEventMethodType(ast, topic, this.context));
 
                             // assign annotation
 
@@ -275,16 +427,16 @@ public class Generator {
                             an.setTypeName(ast.newName(TOPIC_ANN_TYPE_NAME));
                             an.values().add(newKeyValueString(ast, "name", topic.getName()));
                             if (topic.getPublish() != null) {
-                                an.values().add(newKeyValueClass(ast, "publish", messageTypeName(topic.getPublish())));
+                                an.values().add(newKeyValueClass(ast, "publish", messageTypeName(topic.getPublish(), this.context)));
                             }
                             if (topic.getSubscribe() != null) {
-                                an.values().add(newKeyValueClass(ast, "subscribe", messageTypeName(topic.getSubscribe())));
+                                an.values().add(newKeyValueClass(ast, "subscribe", messageTypeName(topic.getSubscribe(), this.context)));
                             }
                             md.modifiers().add(an);
 
                             // make public
 
-                            PackageTypeBuilder.makePublic(md);
+                            makePublic(md);
 
                             // return
 
@@ -300,12 +452,12 @@ public class Generator {
         }
     }
 
-    private TypeInformation createServiceType(final Map.Entry<String, List<Topic>> serviceEntry) {
+    public static TypeInformation createServiceTypeInformation(final Map.Entry<String, List<Topic>> serviceEntry) {
         return new TypeInformation(asTypeName(serviceEntry.getKey()), null, null);
     }
 
     @SuppressWarnings("unchecked")
-    private ParameterizedType evalEventMethodType(final AST ast, final Topic topic) {
+    public static ParameterizedType evalEventMethodType(final AST ast, final Topic topic, final Context context) {
 
         final MessageReference pubMsg = topic.getPublish();
         final MessageReference subMsg = topic.getSubscribe();
@@ -327,10 +479,10 @@ public class Generator {
         final ParameterizedType type = ast.newParameterizedType(eventType);
 
         if (pubMsg != null) {
-            type.typeArguments().add(ast.newSimpleType(ast.newName(messageTypeName(pubMsg))));
+            type.typeArguments().add(ast.newSimpleType(ast.newName(messageTypeName(pubMsg, context))));
         }
         if (subMsg != null) {
-            type.typeArguments().add(ast.newSimpleType(ast.newName(messageTypeName(subMsg))));
+            type.typeArguments().add(ast.newSimpleType(ast.newName(messageTypeName(subMsg, context))));
         }
 
         return type;
@@ -364,11 +516,11 @@ public class Generator {
         return pair;
     }
 
-    private String messageTypeName(final MessageReference message) {
-        return packageName("messages") + "." + PackageTypeBuilder.asTypeName(message.getName());
+    public static String messageTypeName(final MessageReference message, final Context context) {
+        return context.fullQualifiedName("messages") + "." + PackageTypeBuilder.asTypeName(message.getName());
     }
 
-    private String makeTopicMethodName(final TopicInformation ti) {
+    public static String makeTopicMethodName(final TopicInformation ti) {
 
         Stream<String> s = Stream.of(ti.getType());
 
@@ -405,29 +557,8 @@ public class Generator {
         return sb.toString();
     }
 
-    private static String makeVersion(final String version) {
-        return "v" + version.replace(".", "_");
-    }
-
-    private static void addTopic(final Map<String, Map<String, List<Topic>>> versions, final TopicInformation ti, final Topic topic) {
-
-        Map<String, List<Topic>> version = versions.get(ti.getVersion());
-        if (version == null) {
-            version = new HashMap<>();
-            versions.put(ti.getVersion(), version);
-        }
-
-        List<Topic> service = version.get(ti.getService());
-        if (service == null) {
-            service = new LinkedList<>();
-            version.put(ti.getService(), service);
-        }
-
-        service.add(topic);
-    }
-
     private void generateMessages() {
-        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName("messages"), this.characterSet, this::lookupType);
+        final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName("messages"), this.options.getCharacterSet(), this::lookupType);
 
         this.api.getMessages().forEach(message -> {
             generateMessage(builder, message);
@@ -445,7 +576,17 @@ public class Generator {
 
         final String payloadTypeName = PackageTypeBuilder.asTypeName(message.getPayload().getName());
 
-        builder.createType(ti, false, false, b -> {
+        @SuppressWarnings("unchecked")
+        final Consumer<TypeDeclaration> typeCustomizer = td -> {
+            final AST ast = td.getAST();
+
+            final ParameterizedType type = ast.newParameterizedType(ast.newSimpleType(ast.newName(MESSAGE_IFACE_TYPE_NAME)));
+            type.typeArguments().add(ast.newSimpleType(ast.newName(ti.getName() + ".Payload")));
+
+            td.superInterfaceTypes().add(type);
+        };
+
+        builder.createType(ti, typeCustomizer, b -> {
 
             if (message.getPayload() instanceof ObjectType) {
 
@@ -469,7 +610,7 @@ public class Generator {
 
     private void generateTypes() {
 
-        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName("types"), this.characterSet, typeName -> {
+        final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName("types"), this.options.getCharacterSet(), typeName -> {
             return this.api.getTypes().stream().filter(type -> type.getName().equals(typeName)).findFirst()
                     .orElseThrow(() -> new IllegalStateException(String.format("Unknown type '%s' referenced", typeName)));
         });
@@ -545,7 +686,7 @@ public class Generator {
     }
 
     private String packageName(final String local) {
-        String base = this.basePackage;
+        String base = this.options.getBasePackage();
         if (base == null || base.isEmpty()) {
             base = this.api.getBaseTopic();
         }
@@ -559,21 +700,21 @@ public class Generator {
     @SuppressWarnings("unchecked")
     private void generateRoot() throws IOException {
 
-        PackageTypeBuilder.createCompilationUnit(this.target, packageName(null), "package-info", this.characterSet, (ast, cu) -> {
+        PackageTypeBuilder.createCompilationUnit(this.options.getTargetPath(), packageName(null), "package-info", this.options.getCharacterSet(), (ast, cu) -> {
             final Information info = this.api.getInformation();
 
             final Javadoc doc = ast.newJavadoc();
 
             if (info.getTitle() != null) {
                 final TagElement tag = ast.newTagElement();
-                tag.fragments().add(PackageTypeBuilder.newText(ast, info.getTitle()));
+                tag.fragments().add(JDTHelper.newText(ast, info.getTitle()));
                 doc.tags().add(tag);
             }
 
             if (info.getVersion() != null) {
                 final TagElement version = ast.newTagElement();
                 version.setTagName("@version");
-                version.fragments().add(PackageTypeBuilder.newText(ast, info.getVersion()));
+                version.fragments().add(JDTHelper.newText(ast, info.getVersion()));
                 doc.tags().add(version);
             }
 

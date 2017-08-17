@@ -16,9 +16,9 @@
 
 package de.dentrassi.asyncapi.generator.java;
 
-import static de.dentrassi.asyncapi.generator.java.Names.toCamelCase;
-import static de.dentrassi.asyncapi.generator.java.Names.toLowerDash;
-import static de.dentrassi.asyncapi.generator.java.Names.toUpperUnderscore;
+import static de.dentrassi.asyncapi.generator.java.util.Names.toCamelCase;
+import static de.dentrassi.asyncapi.generator.java.util.Names.toLowerDash;
+import static de.dentrassi.asyncapi.generator.java.util.Names.toUpperUnderscore;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 

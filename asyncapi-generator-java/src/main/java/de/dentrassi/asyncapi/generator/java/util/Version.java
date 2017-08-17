@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi.generator.java;
+package de.dentrassi.asyncapi.generator.java.util;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;

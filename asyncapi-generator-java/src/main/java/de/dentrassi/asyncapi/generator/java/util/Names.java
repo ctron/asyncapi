@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi.generator.java;
+package de.dentrassi.asyncapi.generator.java.util;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -118,6 +118,10 @@ public final class Names {
             mapper = Character::toUpperCase;
         }
         return result.toString();
+    }
+
+    public static String makeVersion(final String version) {
+        return "v" + version.replace(".", "_");
     }
 
 }

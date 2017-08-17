@@ -22,6 +22,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import de.dentrassi.asyncapi.AsyncApi;
+import de.dentrassi.asyncapi.generator.java.Generator.Builder;
+import de.dentrassi.asyncapi.generator.java.jms.JmsClientGenerator;
 import de.dentrassi.asyncapi.internal.parser.YamlParser;
 
 public class Application1 {
@@ -31,7 +33,13 @@ public class Application1 {
         try (final InputStream in = Files.newInputStream(path)) {
 
             final AsyncApi api = new YamlParser(in).parse();
-            new Generator(api).target(Paths.get("target/generated")).generate();
+
+            final Builder builder = Generator.newBuilder();
+
+            builder.targetPath(Paths.get("target/generated"));
+            builder.addExtension(new JmsClientGenerator());
+
+            builder.build(api).generate();
         }
 
     }

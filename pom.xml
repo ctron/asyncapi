@@ -71,12 +71,22 @@
 
     <modules>
         <module>asyncapi</module>
+        <module>asyncapi-jms</module>
+        <module>asyncapi-jms-amqp</module>
+
         <module>asyncapi-model</module>
+
         <module>asyncapi-generator-java</module>
     </modules>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>1.7.25</version>
+            </dependency>
+
             <!-- testing -->
             <dependency>
                 <groupId>junit</groupId>
