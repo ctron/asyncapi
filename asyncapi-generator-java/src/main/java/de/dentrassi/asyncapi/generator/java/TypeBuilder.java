@@ -27,8 +27,11 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.CompilationUnit;
 import org.eclipse.jdt.core.dom.EnumConstantDeclaration;
+import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
+import org.eclipse.jdt.core.dom.NumberLiteral;
+import org.eclipse.jdt.core.dom.PrimitiveType;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 
 import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
@@ -36,11 +39,7 @@ import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
 public interface TypeBuilder {
 
     public default void createType(final TypeInformation type, final boolean iface, final boolean serializable, final Consumer<TypeBuilder> consumer) {
-        final Consumer<TypeDeclaration> typeCustomizer = asInterface(iface) //
-                .andThen(superInterfaces(serializable ? Collections.singletonList("java.io.Serializable") : Collections.emptyList())) //
-                .andThen(JDTHelper::makeStatic);
-
-        createType(type, typeCustomizer, consumer);
+        createType(type, defaultTypeCustomizer(iface, serializable, true), consumer);
     }
 
     public void createType(TypeInformation type, Consumer<TypeDeclaration> typeCustomizer, Consumer<TypeBuilder> consumer);
@@ -55,6 +54,33 @@ public interface TypeBuilder {
         createBodyContent((ast, cu) -> {
             return consumer.apply(ast, cu);
         });
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Consumer<TypeDeclaration> defaultTypeCustomizer(final boolean iface, final boolean serializable, final boolean makeStatic) {
+        Consumer<TypeDeclaration> typeCustomizer = TypeBuilder.asInterface(iface);
+
+        typeCustomizer = typeCustomizer.andThen(TypeBuilder.superInterfaces(serializable ? Collections.singletonList("java.io.Serializable") : Collections.emptyList()));
+
+        if (makeStatic) {
+            typeCustomizer = typeCustomizer.andThen(JDTHelper::makeStatic);
+        }
+
+        if (serializable && !iface) {
+            typeCustomizer = typeCustomizer.andThen(td -> {
+
+                final AST ast = td.getAST();
+
+                final org.eclipse.jdt.core.dom.Type longType = ast.newPrimitiveType(PrimitiveType.LONG);
+                final NumberLiteral initializer = ast.newNumberLiteral();
+                initializer.setToken("1L");
+                final FieldDeclaration sf = JDTHelper.createField(ast, longType, "serialVersionUID", initializer, ModifierKeyword.PRIVATE_KEYWORD, ModifierKeyword.STATIC_KEYWORD,
+                        ModifierKeyword.FINAL_KEYWORD);
+
+                td.bodyDeclarations().add(sf);
+            });
+        }
+        return typeCustomizer;
     }
 
     @SuppressWarnings("unchecked")

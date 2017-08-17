@@ -22,12 +22,14 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.BodyDeclaration;
 import org.eclipse.jdt.core.dom.CatchClause;
+import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.FieldDeclaration;
 import org.eclipse.jdt.core.dom.MarkerAnnotation;
 import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
 import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.StringLiteral;
 import org.eclipse.jdt.core.dom.TextElement;
+import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
 @SuppressWarnings("unchecked")
@@ -90,11 +92,18 @@ public final class JDTHelper {
     }
 
     public static FieldDeclaration createField(final AST ast, final String typeName, final String name, final ModifierKeyword... keywords) {
+        return createField(ast, ast.newSimpleType(ast.newName(typeName)), name, null, keywords);
+    }
+
+    public static FieldDeclaration createField(final AST ast, final Type type, final String name, final Expression initializer, final ModifierKeyword... keywords) {
         final VariableDeclarationFragment vdf = ast.newVariableDeclarationFragment();
         vdf.setName(ast.newSimpleName(name));
+        if (initializer != null) {
+            vdf.setInitializer(initializer);
+        }
         final FieldDeclaration fd = ast.newFieldDeclaration(vdf);
         make(fd, keywords);
-        fd.setType(ast.newSimpleType(ast.newName(typeName)));
+        fd.setType(type);
         return fd;
     }
 

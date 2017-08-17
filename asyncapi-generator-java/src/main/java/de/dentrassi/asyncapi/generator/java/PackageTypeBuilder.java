@@ -21,18 +21,17 @@ import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makeStatic;
 import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.newText;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import org.eclipse.jdt.core.ToolFactory;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Assignment;
@@ -57,6 +56,9 @@ import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.TagElement;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+import org.eclipse.jdt.core.formatter.CodeFormatter;
+import org.eclipse.jface.text.Document;
+import org.eclipse.text.edits.TextEdit;
 
 import de.dentrassi.asyncapi.ArrayType;
 import de.dentrassi.asyncapi.CoreType;
@@ -171,10 +173,21 @@ public class PackageTypeBuilder implements TypeBuilder {
         try {
             Files.createDirectories(path.getParent());
 
+            // format code
+
+            final CodeFormatter formatter = ToolFactory.createCodeFormatter(null);
+            final String s = cu.toString();
+            final TextEdit result = formatter.format(CodeFormatter.K_COMPILATION_UNIT, s, 0, s.length(), 0, null);
+
+            final Document doc = new Document(s);
+            result.apply(doc);
+
+            // write out
+
             try (Writer writer = Files.newBufferedWriter(path, charset)) {
-                writer.append(cu.toString());
+                writer.append(doc.get());
             }
-        } catch (final IOException e) {
+        } catch (final Exception e) {
             throw new RuntimeException(e);
         }
 
@@ -182,10 +195,7 @@ public class PackageTypeBuilder implements TypeBuilder {
 
     @Override
     public void createType(final TypeInformation type, final boolean iface, final boolean serializable, final Consumer<TypeBuilder> consumer) {
-        final Consumer<TypeDeclaration> typeCustomizer = TypeBuilder.asInterface(iface) //
-                .andThen(TypeBuilder.superInterfaces(serializable ? Collections.singletonList("java.io.Serializable") : Collections.emptyList()));
-
-        createType(type, typeCustomizer, consumer);
+        createType(type, TypeBuilder.defaultTypeCustomizer(iface, serializable, false), consumer);
     }
 
     @Override
