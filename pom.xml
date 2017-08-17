@@ -74,6 +74,8 @@
         <module>asyncapi-jms</module>
         <module>asyncapi-jms-amqp</module>
 
+        <module>asyncapi-gson</module>
+
         <module>asyncapi-model</module>
 
         <module>asyncapi-generator-java</module>
