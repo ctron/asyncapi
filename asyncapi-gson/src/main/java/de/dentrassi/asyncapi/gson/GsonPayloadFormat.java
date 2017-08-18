@@ -18,6 +18,7 @@ package de.dentrassi.asyncapi.gson;
 
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,10 +38,18 @@ public class GsonPayloadFormat implements TextPayloadFormat {
     private final Gson gson;
 
     public GsonPayloadFormat() {
-        this(DateTimeStrategy.ISO_8601_UTC);
+        this((Consumer<GsonBuilder>) null);
+    }
+
+    public GsonPayloadFormat(final Consumer<GsonBuilder> customizer) {
+        this(DateTimeStrategy.ISO_8601_UTC, customizer);
     }
 
     public GsonPayloadFormat(final DateTimeStrategy dateTimeStrategy) {
+        this(dateTimeStrategy, null);
+    }
+
+    public GsonPayloadFormat(final DateTimeStrategy dateTimeStrategy, final Consumer<GsonBuilder> customizer) {
         Objects.requireNonNull(dateTimeStrategy);
 
         final GsonBuilder builder = new GsonBuilder();
@@ -57,6 +66,10 @@ public class GsonPayloadFormat implements TextPayloadFormat {
 
         default:
             throw new IllegalArgumentException("Unknown date time strategy: " + dateTimeStrategy);
+        }
+
+        if (customizer != null) {
+            customizer.accept(builder);
         }
 
         this.gson = builder.create();
