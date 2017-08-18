@@ -18,31 +18,35 @@ package de.dentrassi.asyncapi.client;
 
 public interface Client {
 
-    public abstract class Builder<B extends Builder<B, C>, C extends Client> {
+    public abstract class AbstractBuilder<B extends AbstractBuilder<B, C>, C extends Client> implements Builder<C> {
         private String host;
         private String baseTopic;
 
-        protected Builder() {
+        protected AbstractBuilder() {
         }
 
-        public Builder<B, C> host(final String host) {
+        protected abstract B builder();
+
+        public B host(final String host) {
             this.host = host;
-            return this;
+            return builder();
         }
 
         public String host() {
             return this.host;
         }
 
-        public Builder<B, C> baseTopic(final String baseTopic) {
+        public B baseTopic(final String baseTopic) {
             this.baseTopic = baseTopic;
-            return this;
+            return builder();
         }
 
         public String baseTopic() {
             return this.baseTopic;
         }
+    }
 
-        public abstract C build();
+    public interface Builder<C extends Client> {
+        public C build();
     }
 }

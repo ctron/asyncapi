@@ -25,6 +25,7 @@ import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -91,10 +92,10 @@ public class PackageTypeBuilder implements TypeBuilder {
         }
 
         @Override
-        public void createBodyContent(final BiFunction<AST, CompilationUnit, ASTNode> consumer) {
-            final ASTNode result = consumer.apply(this.ast, this.cu);
+        public void createBodyContent(final BiFunction<AST, CompilationUnit, List<ASTNode>> consumer) {
+            final List<ASTNode> result = consumer.apply(this.ast, this.cu);
             if (result != null) {
-                this.td.bodyDeclarations().add(result);
+                this.td.bodyDeclarations().addAll(result);
             }
         }
 
@@ -219,7 +220,7 @@ public class PackageTypeBuilder implements TypeBuilder {
     }
 
     @Override
-    public void createBodyContent(final BiFunction<AST, CompilationUnit, ASTNode> consumer) {
+    public void createBodyContent(final BiFunction<AST, CompilationUnit, List<ASTNode>> consumer) {
         throw new IllegalStateException("Unable to create body content on package level");
     }
 

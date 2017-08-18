@@ -29,7 +29,7 @@ import de.dentrassi.asyncapi.format.TextPayloadFormat;
 
 public class AbstractJmsClient implements Client, AutoCloseable {
 
-    public static abstract class Builder<C extends AbstractJmsClient> extends Client.Builder<Builder<C>, C> {
+    public static abstract class Builder<C extends AbstractJmsClient> extends Client.AbstractBuilder<Builder<C>, C> {
 
         private JmsProfile profile;
         private JmsPayloadFormat payloadFormat = JmsPayloadFormat.objectMessageFormat();
@@ -38,6 +38,11 @@ public class AbstractJmsClient implements Client, AutoCloseable {
         private String password;
 
         protected Builder() {
+        }
+
+        @Override
+        protected Builder<C> builder() {
+            return this;
         }
 
         public Builder<C> profile(final JmsProfile profile) {

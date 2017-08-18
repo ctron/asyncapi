@@ -315,7 +315,7 @@ public class Generator {
         Consumer<TypeDeclaration> typeCustomizer = td -> {
             final AST ast = td.getAST();
 
-            final SimpleType st = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.client.Client.Builder"));
+            final SimpleType st = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.client.Client.AbstractBuilder"));
 
             td.setSuperclassType(parametrizeSimple(st, "B", "C"));
         };

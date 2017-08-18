@@ -20,11 +20,13 @@ import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.createCatchBlo
 import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makePrivate;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
 import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.AnonymousClassDeclaration;
 import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.Block;
@@ -55,6 +57,7 @@ import de.dentrassi.asyncapi.generator.java.GeneratorExtension;
 import de.dentrassi.asyncapi.generator.java.TypeBuilder;
 import de.dentrassi.asyncapi.generator.java.TypeInformation;
 import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
+import de.dentrassi.asyncapi.generator.java.util.Java;
 import de.dentrassi.asyncapi.generator.java.util.Names;
 
 public class JmsClientGeneratorExtension implements GeneratorExtension {
@@ -388,28 +391,14 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
         });
     }
 
-    @SuppressWarnings("unchecked")
     private void createNewBuilderMethod(final TypeBuilder builder) {
-        builder.createMethod((ast, cu) -> {
-            final MethodDeclaration md = ast.newMethodDeclaration();
 
-            md.setName(ast.newSimpleName("newBuilder"));
-            JDTHelper.make(md, ModifierKeyword.PUBLIC_KEYWORD, ModifierKeyword.STATIC_KEYWORD);
-            md.setReturnType2(ast.newSimpleType(ast.newSimpleName("Builder")));
-
-            final Block body = ast.newBlock();
-            md.setBody(body);
-
-            final ClassInstanceCreation cir = ast.newClassInstanceCreation();
-            cir.setType(ast.newSimpleType(ast.newName("Builder")));
-
-            final ReturnStatement ret = ast.newReturnStatement();
-            ret.setExpression(cir);
-
-            body.statements().add(ret);
-
-            return md;
+        builder.createBodyContent((ast, cu) -> {
+            return Java.parseSingleList(ast, ASTParser.K_CLASS_BODY_DECLARATIONS,
+                    "/** Create new client builder */ public static Builder newBuilder() {return new Builder();}",
+                    Java::firstBodyDeclaration);
         });
+
     }
 
     private void createServiceFields(final TypeBuilder builder, final Context context) {
@@ -432,7 +421,7 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
 
                     JDTHelper.make(fd, ModifierKeyword.PRIVATE_KEYWORD, ModifierKeyword.FINAL_KEYWORD);
 
-                    return fd;
+                    return Collections.singletonList(fd);
 
                 });
             }

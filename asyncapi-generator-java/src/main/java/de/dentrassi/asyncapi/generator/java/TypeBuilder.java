@@ -48,11 +48,11 @@ public interface TypeBuilder {
 
     public void createProperty(PropertyInformation property);
 
-    public void createBodyContent(BiFunction<AST, CompilationUnit, ASTNode> consumer);
+    public void createBodyContent(BiFunction<AST, CompilationUnit, List<ASTNode>> consumer);
 
     public default void createMethod(final BiFunction<AST, CompilationUnit, MethodDeclaration> consumer) {
         createBodyContent((ast, cu) -> {
-            return consumer.apply(ast, cu);
+            return Collections.singletonList(consumer.apply(ast, cu));
         });
     }
 
