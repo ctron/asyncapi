@@ -1,3 +1,13 @@
 de.dentrassi.asyncapi
+de.dentrassi.asyncapi.client
+de.dentrassi.asyncapi.format
 de.dentrassi.asyncapi.generator.java
+de.dentrassi.asyncapi.generator.java.gson
+de.dentrassi.asyncapi.generator.java.jms
+de.dentrassi.asyncapi.generator.java.util
+de.dentrassi.asyncapi.gson
+de.dentrassi.asyncapi.gson.time
 de.dentrassi.asyncapi.internal.parser
+de.dentrassi.asyncapi.jms
+de.dentrassi.asyncapi.jms.amqp
+de.dentrassi.asyncapi.util
