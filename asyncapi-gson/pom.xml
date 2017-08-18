@@ -11,7 +11,7 @@
 
     <artifactId>asyncapi-gson</artifactId>
 
-    <name>AsyncAPI</name>
+    <name>AsyncAPI :: GSON</name>
     <description>AsyncAPI GSON payload support</description>
 
     <dependencies>
