@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Names.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">AsyncAPI :: Java generator</a> &gt; <a href="index.source.html" class="el_package">de.dentrassi.asyncapi.generator.java.util</a> &gt; <span class="el_source">Names.java</span></div><h1>Names.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (C) 2017 Jens Reimann &lt;jreimann@redhat.com&gt;
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.dentrassi.asyncapi.generator.java.util;
+
+import java.util.LinkedList;
+import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+public final class Names {
+<span class="nc" id="L25">    private Names() {</span>
+<span class="nc" id="L26">    }</span>
+
+    @FunctionalInterface
+    private interface CharMapper {
+        char map(char in);
+    }
+
+    @FunctionalInterface
+    private interface CharConsumer {
+        void consume(char in);
+    }
+
+    public static String toCamelCase(final String text, final boolean firstUpper) {
+<span class="fc" id="L39">        return toFormat(text, words -&gt; joinCamel(firstUpper, words));</span>
+    }
+
+    public static String toLowerDash(final String text) {
+<span class="fc" id="L43">        return toFormat(text, words -&gt; joinDelimiter(words, String::toLowerCase, &quot;-&quot;));</span>
+    }
+
+    public static String toUpperUnderscore(final String text) {
+<span class="fc" id="L47">        return toFormat(text, words -&gt; joinDelimiter(words, String::toUpperCase, &quot;_&quot;));</span>
+    }
+
+<span class="pc" id="L50">    private static enum Type {</span>
+<span class="fc" id="L51">        UPPER, LOWER, NUMERIC, OTHER;</span>
+    }
+
+    public static String toFormat(final String text, final Function&lt;List&lt;String&gt;, String&gt; target) {
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        if (text == null) {</span>
+<span class="fc" id="L56">            return null;</span>
+        }
+
+<span class="fc" id="L59">        final List&lt;String&gt; words = new LinkedList&lt;&gt;();</span>
+<span class="fc" id="L60">        final int len = text.length();</span>
+
+<span class="fc" id="L62">        Type lastType = Type.UPPER;</span>
+<span class="fc" id="L63">        StringBuilder sb = new StringBuilder();</span>
+
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        for (int i = 0; i &lt; len; i++) {</span>
+<span class="fc" id="L66">            final char c = text.charAt(i);</span>
+
+<span class="fc" id="L68">            final Type type = typeOf(c);</span>
+
+<span class="fc bfc" id="L70" title="All 6 branches covered.">            if (lastType == Type.LOWER &amp;&amp; (type == Type.UPPER || type == Type.NUMERIC)) {</span>
+<span class="fc" id="L71">                sb = split(sb, words);</span>
+<span class="fc" id="L72">                sb = append(sb, c);</span>
+<span class="fc bfc" id="L73" title="All 6 branches covered.">            } else if (lastType == Type.NUMERIC &amp;&amp; (type == Type.UPPER || type == Type.LOWER)) {</span>
+<span class="fc" id="L74">                sb = split(sb, words);</span>
+<span class="fc" id="L75">                sb = append(sb, c);</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">            } else if (type != Type.OTHER) {</span>
+<span class="fc" id="L77">                sb = append(sb, c);</span>
+            } else {
+                // unknown type: split and ignore
+<span class="fc" id="L80">                sb = split(sb, words);</span>
+            }
+
+<span class="fc" id="L83">            lastType = type;</span>
+        }
+
+<span class="fc" id="L86">        split(sb, words);</span>
+
+<span class="fc" id="L88">        return target.apply(words);</span>
+    }
+
+    private static StringBuilder append(StringBuilder sb, final char c) {
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (sb == null) {</span>
+<span class="fc" id="L93">            sb = new StringBuilder();</span>
+        }
+<span class="fc" id="L95">        sb.append(c);</span>
+<span class="fc" id="L96">        return sb;</span>
+    }
+
+    private static StringBuilder split(StringBuilder sb, final List&lt;String&gt; words) {
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        if (sb != null) {</span>
+<span class="fc" id="L101">            words.add(sb.toString());</span>
+<span class="fc" id="L102">            sb = null;</span>
+        }
+<span class="fc" id="L104">        return sb;</span>
+    }
+
+    private static Type typeOf(final char c) {
+<span class="fc bfc" id="L108" title="All 2 branches covered.">        if (Character.isUpperCase(c)) {</span>
+<span class="fc" id="L109">            return Type.UPPER;</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        } else if (Character.isDigit(c)) {</span>
+<span class="fc" id="L111">            return Type.NUMERIC;</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">        } else if (Character.isAlphabetic(c)) {</span>
+<span class="fc" id="L113">            return Type.LOWER;</span>
+        }
+<span class="fc" id="L115">        return Type.OTHER;</span>
+    }
+
+    private static String joinDelimiter(final List&lt;String&gt; words, Function&lt;String, String&gt; conversion, final String delimiter) {
+<span class="pc bpc" id="L119" title="1 of 2 branches missed.">        if (conversion == null) {</span>
+<span class="nc" id="L120">            conversion = str -&gt; str;</span>
+        }
+
+<span class="fc" id="L123">        return words.stream().map(conversion).collect(Collectors.joining(delimiter));</span>
+    }
+
+    private static String joinCamel(final boolean firstUpper, final List&lt;String&gt; words) {
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        CharMapper mapper = firstUpper ? Character::toUpperCase : Character::toLowerCase;</span>
+<span class="fc" id="L128">        final StringBuilder result = new StringBuilder();</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        for (final String word : words) {</span>
+
+<span class="fc" id="L131">            final int wlen = word.length();</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">            if (wlen &lt; 1) {</span>
+<span class="fc" id="L133">                continue;</span>
+            }
+
+<span class="fc" id="L136">            result.append(mapper.map(word.charAt(0)));</span>
+
+<span class="pc bpc" id="L138" title="1 of 2 branches missed.">            if (wlen &gt; 1) {</span>
+<span class="fc" id="L139">                result.append(word.substring(1).toLowerCase());</span>
+            }
+
+<span class="fc" id="L142">            mapper = Character::toUpperCase;</span>
+<span class="fc" id="L143">        }</span>
+<span class="fc" id="L144">        return result.toString();</span>
+    }
+
+    public static String makeVersion(final String version) {
+<span class="nc" id="L148">        return &quot;v&quot; + version.replace(&quot;.&quot;, &quot;_&quot;);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

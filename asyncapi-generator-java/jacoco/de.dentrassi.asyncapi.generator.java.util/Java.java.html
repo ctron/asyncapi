@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Java.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">AsyncAPI :: Java generator</a> &gt; <a href="index.source.html" class="el_package">de.dentrassi.asyncapi.generator.java.util</a> &gt; <span class="el_source">Java.java</span></div><h1>Java.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (C) 2017 Jens Reimann &lt;jreimann@redhat.com&gt;
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.dentrassi.asyncapi.generator.java.util;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Stream;
+
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+
+public final class Java {
+<span class="nc" id="L30">    private Java() {</span>
+<span class="nc" id="L31">    }</span>
+
+    /**
+     * Stream a list of {@link ASTNode}s
+     *
+     * @param nodes
+     *            the nodes to stream
+     * @return the stream
+     */
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static Stream&lt;ASTNode&gt; stream(final List&lt;?&gt; nodes) {
+<span class="nc" id="L42">        return ((List&lt;ASTNode&gt;) nodes).stream();</span>
+    }
+
+    /**
+     * Stream a list of {@link ASTNode}s from an {@link ASTNode} property
+     * &lt;p&gt;
+     * This can be used e.g. like the following:
+     * &lt;/p&gt;
+     * 
+     * &lt;pre&gt;
+     * stream(node, TypeDeclaration.class, TypeDeclaration::bodyDeclaration)
+     *         .findFirst()
+     *         .get();
+     * &lt;/pre&gt;
+     *
+     * @param node
+     *            the source node
+     * @param clazz
+     *            the required type of the source node
+     * @param supplier
+     *            the supplier of nodes
+     * @param &lt;T&gt;
+     *            the type of the {@link ASTNode}
+     * @return a stream of nodes
+     */
+    public static &lt;T extends ASTNode&gt; Stream&lt;ASTNode&gt; stream(final ASTNode node, final Class&lt;T&gt; clazz, final Function&lt;T, List&lt;?&gt;&gt; supplier) {
+<span class="nc" id="L68">        return stream(supplier.apply(clazz.cast(node)));</span>
+    }
+
+    /**
+     * Get the first node of a {@link TypeDeclaration#bodyDeclarations()}
+     * &lt;p&gt;
+     * &lt;b&gt;Note: &lt;/b&gt; Fails of there is no first node.
+     * &lt;/p&gt;
+     *
+     * @param node
+     *            the node to work on
+     * @return the first node from the body declaration
+     */
+    public static ASTNode firstBodyDeclaration(final ASTNode node) {
+<span class="nc" id="L82">        return stream(node, TypeDeclaration.class, TypeDeclaration::bodyDeclarations)</span>
+<span class="nc" id="L83">                .findFirst()</span>
+<span class="nc" id="L84">                .get();</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static List&lt;ASTNode&gt; parse(final AST ast, final int kind, final String code, final Function&lt;ASTNode, List&lt;ASTNode&gt;&gt; extractor) {
+<span class="nc" id="L89">        final List&lt;ASTNode&gt; result = parseInternal(ast, kind, code, node -&gt; {</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">            if (extractor != null) {</span>
+<span class="nc" id="L91">                return extractor.apply(node);</span>
+            } else {
+<span class="nc" id="L93">                return Collections.singletonList(node);</span>
+            }
+        });
+
+<span class="nc" id="L97">        return ASTNode.copySubtrees(ast, result);</span>
+    }
+
+    public static ASTNode parseSingle(final AST ast, final int kind, final String code, final Function&lt;ASTNode, ASTNode&gt; extractor) {
+<span class="nc" id="L101">        final ASTNode result = parseInternal(ast, kind, code, node -&gt; {</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (extractor != null) {</span>
+<span class="nc" id="L103">                return extractor.apply(node);</span>
+            } else {
+<span class="nc" id="L105">                return node;</span>
+            }
+        });
+
+<span class="nc" id="L109">        return ASTNode.copySubtree(ast, result);</span>
+    }
+
+    public static List&lt;ASTNode&gt; parseSingleList(final AST ast, final int kind, final String code, final Function&lt;ASTNode, ASTNode&gt; extractor) {
+<span class="nc" id="L113">        final ASTNode result = parseSingle(ast, kind, code, extractor);</span>
+
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        if (result == null) {</span>
+<span class="nc" id="L116">            throw new IllegalStateException(&quot;No element parsed&quot;);</span>
+        }
+
+<span class="nc" id="L119">        return Collections.singletonList(result);</span>
+    }
+
+    public static &lt;T&gt; T parseInternal(final AST ast, final int kind, final String code, final Function&lt;ASTNode, T&gt; extractor) {
+<span class="nc" id="L123">        final ASTParser parser = ASTParser.newParser(AST.JLS8);</span>
+
+<span class="nc" id="L125">        parser.setKind(kind);</span>
+<span class="nc" id="L126">        parser.setSource(code.toCharArray());</span>
+
+<span class="nc" id="L128">        final ASTNode node = parser.createAST(null);</span>
+
+<span class="nc" id="L130">        return extractor.apply(node);</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

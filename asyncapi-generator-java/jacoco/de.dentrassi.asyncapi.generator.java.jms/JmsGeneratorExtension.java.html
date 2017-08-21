@@ -1,0 +1,556 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JmsGeneratorExtension.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">AsyncAPI :: Java generator</a> &gt; <a href="index.source.html" class="el_package">de.dentrassi.asyncapi.generator.java.jms</a> &gt; <span class="el_source">JmsGeneratorExtension.java</span></div><h1>JmsGeneratorExtension.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (C) 2017 Jens Reimann &lt;jreimann@redhat.com&gt;
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.dentrassi.asyncapi.generator.java.jms;
+
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.createCatchBlock;
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makePrivate;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.AnonymousClassDeclaration;
+import org.eclipse.jdt.core.dom.Assignment;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.ClassInstanceCreation;
+import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.FieldAccess;
+import org.eclipse.jdt.core.dom.FieldDeclaration;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
+import org.eclipse.jdt.core.dom.ParameterizedType;
+import org.eclipse.jdt.core.dom.ReturnStatement;
+import org.eclipse.jdt.core.dom.SimpleType;
+import org.eclipse.jdt.core.dom.SuperConstructorInvocation;
+import org.eclipse.jdt.core.dom.ThisExpression;
+import org.eclipse.jdt.core.dom.ThrowStatement;
+import org.eclipse.jdt.core.dom.TryStatement;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.TypeLiteral;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+
+import de.dentrassi.asyncapi.AsyncApi;
+import de.dentrassi.asyncapi.MessageReference;
+import de.dentrassi.asyncapi.Topic;
+import de.dentrassi.asyncapi.generator.java.ConnectorType;
+import de.dentrassi.asyncapi.generator.java.Generator;
+import de.dentrassi.asyncapi.generator.java.Generator.Context;
+import de.dentrassi.asyncapi.generator.java.Generator.Options;
+import de.dentrassi.asyncapi.generator.java.GeneratorExtension;
+import de.dentrassi.asyncapi.generator.java.TypeBuilder;
+import de.dentrassi.asyncapi.generator.java.TypeInformation;
+import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
+import de.dentrassi.asyncapi.generator.java.util.Java;
+import de.dentrassi.asyncapi.generator.java.util.Names;
+
+<span class="nc" id="L65">public class JmsGeneratorExtension implements GeneratorExtension {</span>
+
+    private static final String TYPE_NAME_ABSTRACT_JMS_CONNECTOR = &quot;de.dentrassi.asyncapi.jms.AbstractJmsConnector&quot;;
+
+    @Override
+    public void generate(final AsyncApi api, final Options options, final Context context) {
+
+<span class="nc" id="L72">        createConnector(context, ConnectorType.CLIENT);</span>
+<span class="nc" id="L73">        createConnector(context, ConnectorType.SERVER);</span>
+
+<span class="nc" id="L75">        createServiceClasses(context, ConnectorType.CLIENT);</span>
+<span class="nc" id="L76">        createServiceClasses(context, ConnectorType.SERVER);</span>
+<span class="nc" id="L77">    }</span>
+
+    private void createConnector(final Context context, final ConnectorType connectorType) {
+<span class="nc" id="L80">        final TypeBuilder builder = context.createTypeBuilder(&quot;jms.&quot; + connectorType.getPackageName());</span>
+
+<span class="nc" id="L82">        final Consumer&lt;TypeDeclaration&gt; typeCustomizer = TypeBuilder //</span>
+<span class="nc" id="L83">                .superClass(TYPE_NAME_ABSTRACT_JMS_CONNECTOR) //</span>
+<span class="nc" id="L84">                .andThen(TypeBuilder.superInterfaces(Arrays.asList(context.fullQualifiedName(connectorType.getSimpleTypeName()))));</span>
+
+<span class="nc" id="L86">        builder.createType(new TypeInformation(&quot;Jms&quot; + connectorType.getSimpleTypeName(), null, null), typeCustomizer, b -&gt; {</span>
+
+<span class="nc" id="L88">            createBuilderType(b, connectorType);</span>
+<span class="nc" id="L89">            createNewBuilderMethod(b);</span>
+
+<span class="nc" id="L91">            createServiceFields(b, context, connectorType);</span>
+<span class="nc" id="L92">            createConstructor(b, context, connectorType);</span>
+<span class="nc" id="L93">            createVersions(b, context, connectorType);</span>
+
+<span class="nc" id="L95">        });</span>
+<span class="nc" id="L96">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void createServiceClasses(final Context context, final ConnectorType connectorType) {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        for (final Map.Entry&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; entry : context.getServiceDefinitions().getVersions().entrySet()) {</span>
+
+<span class="nc" id="L102">            final String version = Names.makeVersion(entry.getKey());</span>
+
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            for (final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry : entry.getValue().entrySet()) {</span>
+<span class="nc" id="L105">                final String serviceName = Names.toCamelCase(serviceEntry.getKey(), false);</span>
+<span class="nc" id="L106">                final String serviceTypeName = makeServiceType(context, connectorType, version, serviceEntry, false);</span>
+
+<span class="nc" id="L108">                final String implName = Names.toCamelCase(serviceName, true) + &quot;Impl&quot;;</span>
+
+<span class="nc" id="L110">                final TypeBuilder builder = context.createTypeBuilder(&quot;jms.&quot; + connectorType.getPackageName() + &quot;.&quot; + version);</span>
+
+<span class="nc" id="L112">                final Consumer&lt;TypeDeclaration&gt; typeCustomizer = TypeBuilder.superInterfaces(Arrays.asList(serviceTypeName)) //</span>
+<span class="nc" id="L113">                        .andThen(TypeBuilder.superClass(&quot;de.dentrassi.asyncapi.jms.AbstractJmsServiceImpl&quot;));</span>
+
+<span class="nc" id="L115">                builder.createType(new TypeInformation(implName, null, null), typeCustomizer, b -&gt; {</span>
+
+<span class="nc" id="L117">                    createServiceConstructor(b, implName);</span>
+
+<span class="nc bnc" id="L119" title="All 2 branches missed.">                    for (final Topic topic : serviceEntry.getValue()) {</span>
+<span class="nc" id="L120">                        final String name = Generator.makeTopicMethodName(context.getServiceDefinitions().getTopics().get(topic));</span>
+
+<span class="nc" id="L122">                        b.createMethod((ast, cu) -&gt; {</span>
+
+<span class="nc" id="L124">                            final MethodDeclaration md = ast.newMethodDeclaration();</span>
+
+<span class="nc" id="L126">                            JDTHelper.makePublic(md);</span>
+<span class="nc" id="L127">                            JDTHelper.addSimpleAnnotation(md, &quot;Override&quot;);</span>
+
+<span class="nc" id="L129">                            md.setName(ast.newSimpleName(name));</span>
+<span class="nc" id="L130">                            md.setReturnType2(Generator.evalEventMethodType(ast, topic, context, connectorType));</span>
+
+                            // body
+
+<span class="nc" id="L134">                            final Block body = ast.newBlock();</span>
+<span class="nc" id="L135">                            md.setBody(body);</span>
+
+                            // return
+
+<span class="nc" id="L139">                            final ReturnStatement ret = ast.newReturnStatement();</span>
+
+<span class="nc" id="L141">                            final MessageReference pubMsg = connectorType.getPublish(topic);</span>
+<span class="nc" id="L142">                            final MessageReference subMsg = connectorType.getSubscribe(topic);</span>
+
+<span class="nc bnc" id="L144" title="All 4 branches missed.">                            if (pubMsg != null &amp;&amp; subMsg != null) {</span>
+<span class="nc" id="L145">                                ret.setExpression(</span>
+<span class="nc" id="L146">                                        aggregate(ast,</span>
+<span class="nc" id="L147">                                                publisher(ast, topic.getName()),</span>
+<span class="nc" id="L148">                                                subscriber(ast, topic.getName(), Generator.messageTypeName(subMsg, context))));</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                            } else if (pubMsg != null) {</span>
+<span class="nc" id="L150">                                ret.setExpression(publisher(ast, topic.getName()));</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">                            } else if (subMsg != null) {</span>
+<span class="nc" id="L152">                                ret.setExpression(subscriber(ast, topic.getName(), Generator.messageTypeName(subMsg, context)));</span>
+                            }
+
+<span class="nc" id="L155">                            body.statements().add(ret);</span>
+
+<span class="nc" id="L157">                            return md;</span>
+
+                        });
+<span class="nc" id="L160">                    }</span>
+
+<span class="nc" id="L162">                });</span>
+<span class="nc" id="L163">            }</span>
+<span class="nc" id="L164">        }</span>
+<span class="nc" id="L165">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private Expression aggregate(final AST ast, final Expression publisher, final Expression subscriber) {
+        // new AggregatePublishSubscriber&lt;&gt;(publish, subscribe)
+
+<span class="nc" id="L171">        final SimpleType type = ast.newSimpleType(ast.newName(&quot;de.dentrassi.asyncapi.util.AggregatePublishSubscriber&quot;));</span>
+<span class="nc" id="L172">        final ParameterizedType pt = ast.newParameterizedType(type);</span>
+
+<span class="nc" id="L174">        final ClassInstanceCreation cic = ast.newClassInstanceCreation();</span>
+<span class="nc" id="L175">        cic.setType(pt);</span>
+
+<span class="nc" id="L177">        cic.arguments().add(publisher);</span>
+<span class="nc" id="L178">        cic.arguments().add(subscriber);</span>
+
+<span class="nc" id="L180">        return cic;</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private Expression subscriber(final AST ast, final String topicName, final String messageTypeName) {
+        // createSubscriber(TOPIC_EVENT_DEVICE_ADDED, DeviceEvent.class, DeviceEvent.Payload.class)
+<span class="nc" id="L186">        final MethodInvocation mi = ast.newMethodInvocation();</span>
+<span class="nc" id="L187">        mi.setName(ast.newSimpleName(&quot;createSubscriber&quot;));</span>
+
+<span class="nc" id="L189">        mi.arguments().add(JDTHelper.newStringLiteral(ast, topicName));</span>
+
+        {
+<span class="nc" id="L192">            final TypeLiteral tl = ast.newTypeLiteral();</span>
+<span class="nc" id="L193">            tl.setType(ast.newSimpleType(ast.newName(messageTypeName)));</span>
+
+<span class="nc" id="L195">            mi.arguments().add(tl);</span>
+        }
+
+        {
+<span class="nc" id="L199">            final TypeLiteral tl = ast.newTypeLiteral();</span>
+<span class="nc" id="L200">            tl.setType(ast.newSimpleType(ast.newName(messageTypeName + &quot;.Payload&quot;)));</span>
+
+<span class="nc" id="L202">            mi.arguments().add(tl);</span>
+        }
+
+<span class="nc" id="L205">        return mi;</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private Expression publisher(final AST ast, final String topicName) {
+        // createPublisher(TOPIC_EVENT_DEVICE_UPDATE)
+
+<span class="nc" id="L212">        final MethodInvocation mi = ast.newMethodInvocation();</span>
+<span class="nc" id="L213">        mi.setName(ast.newSimpleName(&quot;createPublisher&quot;));</span>
+<span class="nc" id="L214">        mi.arguments().add(JDTHelper.newStringLiteral(ast, topicName));</span>
+
+<span class="nc" id="L216">        return mi;</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void createServiceConstructor(final TypeBuilder b, final String implName) {
+        /*
+         * public DevicesImpl(final Connection connection, final Executor executor, final JmsPayloadFormat payloadFormat, final String baseTopic) {
+         *   super(connection, executor, payloadFormat, baseTopic);
+         * }
+         */
+
+<span class="nc" id="L227">        b.createMethod((ast, cu) -&gt; {</span>
+<span class="nc" id="L228">            final MethodDeclaration md = ast.newMethodDeclaration();</span>
+
+<span class="nc" id="L230">            md.setConstructor(true);</span>
+<span class="nc" id="L231">            md.setName(ast.newSimpleName(implName));</span>
+<span class="nc" id="L232">            JDTHelper.makePublic(md);</span>
+
+            // arguments
+
+<span class="nc" id="L236">            md.parameters().add(JDTHelper.createParameter(ast, &quot;javax.jms.Connection&quot;, &quot;connection&quot;, ModifierKeyword.FINAL_KEYWORD));</span>
+<span class="nc" id="L237">            md.parameters().add(JDTHelper.createParameter(ast, &quot;java.util.concurrent.Executor&quot;, &quot;executor&quot;, ModifierKeyword.FINAL_KEYWORD));</span>
+<span class="nc" id="L238">            md.parameters().add(JDTHelper.createParameter(ast, &quot;de.dentrassi.asyncapi.jms.JmsPayloadFormat&quot;, &quot;payloadFormat&quot;, ModifierKeyword.FINAL_KEYWORD));</span>
+<span class="nc" id="L239">            md.parameters().add(JDTHelper.createParameter(ast, &quot;String&quot;, &quot;baseTopic&quot;, ModifierKeyword.FINAL_KEYWORD));</span>
+
+            // body
+
+<span class="nc" id="L243">            final Block body = ast.newBlock();</span>
+<span class="nc" id="L244">            md.setBody(body);</span>
+
+            // super call
+
+<span class="nc" id="L248">            final SuperConstructorInvocation sci = ast.newSuperConstructorInvocation();</span>
+<span class="nc" id="L249">            body.statements().add(sci);</span>
+
+<span class="nc" id="L251">            sci.arguments().add(ast.newSimpleName(&quot;connection&quot;));</span>
+<span class="nc" id="L252">            sci.arguments().add(ast.newSimpleName(&quot;executor&quot;));</span>
+<span class="nc" id="L253">            sci.arguments().add(ast.newSimpleName(&quot;payloadFormat&quot;));</span>
+<span class="nc" id="L254">            sci.arguments().add(ast.newSimpleName(&quot;baseTopic&quot;));</span>
+
+<span class="nc" id="L256">            return md;</span>
+        });
+<span class="nc" id="L258">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void createVersions(final TypeBuilder builder, final Context context, final ConnectorType connectorType) {
+
+<span class="nc bnc" id="L263" title="All 2 branches missed.">        for (final Map.Entry&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; entry : context.getServiceDefinitions().getVersions().entrySet()) {</span>
+
+<span class="nc" id="L265">            final String version = Names.makeVersion(entry.getKey());</span>
+<span class="nc" id="L266">            final String versionTypeName = version.toUpperCase();</span>
+
+<span class="nc" id="L268">            builder.createMethod((ast, cu) -&gt; {</span>
+
+                // create v1() method
+
+<span class="nc" id="L272">                final MethodDeclaration md = ast.newMethodDeclaration();</span>
+<span class="nc" id="L273">                md.setName(ast.newSimpleName(version));</span>
+<span class="nc" id="L274">                md.setReturnType2(ast.newSimpleType(ast.newName(versionTypeName)));</span>
+
+<span class="nc" id="L276">                JDTHelper.addSimpleAnnotation(md, &quot;Override&quot;);</span>
+<span class="nc" id="L277">                JDTHelper.makePublic(md);</span>
+
+                // body
+
+<span class="nc" id="L281">                final Block body = ast.newBlock();</span>
+<span class="nc" id="L282">                md.setBody(body);</span>
+
+                // return
+
+<span class="nc" id="L286">                final ReturnStatement ret = ast.newReturnStatement();</span>
+<span class="nc" id="L287">                body.statements().add(ret);</span>
+
+                // new V1 type
+
+<span class="nc" id="L291">                final AnonymousClassDeclaration cd = ast.newAnonymousClassDeclaration();</span>
+
+<span class="nc" id="L293">                final ClassInstanceCreation ci = ast.newClassInstanceCreation();</span>
+<span class="nc" id="L294">                ci.setAnonymousClassDeclaration(cd);</span>
+<span class="nc" id="L295">                ci.setType(ast.newSimpleType(ast.newName(versionTypeName)));</span>
+
+<span class="nc" id="L297">                ret.setExpression(ci);</span>
+
+                // create V1 methods
+
+<span class="nc bnc" id="L301" title="All 2 branches missed.">                for (final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry : entry.getValue().entrySet()) {</span>
+
+<span class="nc" id="L303">                    final String serviceName = Names.toCamelCase(serviceEntry.getKey(), false);</span>
+<span class="nc" id="L304">                    final String serviceInstanceField = version + Names.toCamelCase(serviceName, true);</span>
+
+<span class="nc" id="L306">                    final String serviceTypeName = makeServiceType(context, connectorType, version, serviceEntry, false);</span>
+
+<span class="nc" id="L308">                    final MethodDeclaration smd = ast.newMethodDeclaration();</span>
+<span class="nc" id="L309">                    smd.setName(ast.newSimpleName(serviceName));</span>
+<span class="nc" id="L310">                    smd.setReturnType2(ast.newSimpleType(ast.newName(serviceTypeName)));</span>
+
+<span class="nc" id="L312">                    JDTHelper.addSimpleAnnotation(smd, &quot;Override&quot;);</span>
+<span class="nc" id="L313">                    JDTHelper.makePublic(smd);</span>
+
+<span class="nc" id="L315">                    cd.bodyDeclarations().add(smd);</span>
+
+<span class="nc" id="L317">                    final Block sbody = ast.newBlock();</span>
+<span class="nc" id="L318">                    smd.setBody(sbody);</span>
+
+                    // &gt; return JmsClient.this.v1Service
+
+<span class="nc" id="L322">                    final ReturnStatement ret2 = ast.newReturnStatement();</span>
+<span class="nc" id="L323">                    sbody.statements().add(ret2);</span>
+
+<span class="nc" id="L325">                    final ThisExpression te = ast.newThisExpression();</span>
+<span class="nc" id="L326">                    te.setQualifier(ast.newSimpleName(&quot;Jms&quot; + connectorType.getSimpleTypeName()));</span>
+
+<span class="nc" id="L328">                    final FieldAccess fa = ast.newFieldAccess();</span>
+<span class="nc" id="L329">                    fa.setExpression(te);</span>
+<span class="nc" id="L330">                    fa.setName(ast.newSimpleName(serviceInstanceField));</span>
+
+<span class="nc" id="L332">                    ret2.setExpression(fa);</span>
+<span class="nc" id="L333">                }</span>
+
+<span class="nc" id="L335">                return md;</span>
+            });
+
+<span class="nc" id="L338">        }</span>
+
+<span class="nc" id="L340">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void createBuilderType(final TypeBuilder builder, final ConnectorType connectorType) {
+
+<span class="nc" id="L345">        final Consumer&lt;TypeDeclaration&gt; typeCustomizer = //</span>
+<span class="nc" id="L346">                TypeBuilder.make(ModifierKeyword.STATIC_KEYWORD).andThen(td -&gt; {</span>
+
+<span class="nc" id="L348">                    final AST ast = td.getAST();</span>
+<span class="nc" id="L349">                    final SimpleType type = ast.newSimpleType(ast.newName(TYPE_NAME_ABSTRACT_JMS_CONNECTOR + &quot;.Builder&quot;));</span>
+
+<span class="nc" id="L351">                    final ParameterizedType pt = ast.newParameterizedType(type);</span>
+<span class="nc" id="L352">                    pt.typeArguments().add(ast.newSimpleType(ast.newSimpleName(&quot;Jms&quot; + connectorType.getSimpleTypeName())));</span>
+
+<span class="nc" id="L354">                    td.setSuperclassType(pt);</span>
+
+<span class="nc" id="L356">                });</span>
+
+<span class="nc" id="L358">        builder.createType(new TypeInformation(&quot;Builder&quot;, null, null), typeCustomizer, b -&gt; {</span>
+<span class="nc" id="L359">            b.createMethod((ast, cu) -&gt; {</span>
+
+<span class="nc" id="L361">                final MethodDeclaration md = ast.newMethodDeclaration();</span>
+
+<span class="nc" id="L363">                JDTHelper.addSimpleAnnotation(md, &quot;Override&quot;);</span>
+<span class="nc" id="L364">                JDTHelper.makePublic(md);</span>
+
+<span class="nc" id="L366">                md.setName(ast.newSimpleName(&quot;build&quot;));</span>
+<span class="nc" id="L367">                md.setReturnType2(ast.newSimpleType(ast.newName(&quot;Jms&quot; + connectorType.getSimpleTypeName())));</span>
+
+<span class="nc" id="L369">                final TryStatement ts = ast.newTryStatement();</span>
+
+                // try
+
+<span class="nc" id="L373">                final Block tryBlock = ast.newBlock();</span>
+<span class="nc" id="L374">                ts.setBody(tryBlock);</span>
+
+<span class="nc" id="L376">                final ReturnStatement ret = ast.newReturnStatement();</span>
+<span class="nc" id="L377">                final ClassInstanceCreation cir = ast.newClassInstanceCreation();</span>
+<span class="nc" id="L378">                cir.setType(ast.newSimpleType(ast.newName(&quot;Jms&quot; + connectorType.getSimpleTypeName())));</span>
+<span class="nc" id="L379">                cir.arguments().add(ast.newThisExpression());</span>
+
+<span class="nc" id="L381">                ret.setExpression(cir);</span>
+
+<span class="nc" id="L383">                tryBlock.statements().add(ret);</span>
+
+                // catch
+
+<span class="nc" id="L387">                final Block catchBlock = ast.newBlock();</span>
+<span class="nc" id="L388">                final ThrowStatement trs = ast.newThrowStatement();</span>
+<span class="nc" id="L389">                final ClassInstanceCreation cir2 = ast.newClassInstanceCreation();</span>
+<span class="nc" id="L390">                cir2.setType(ast.newSimpleType(ast.newSimpleName(&quot;RuntimeException&quot;)));</span>
+<span class="nc" id="L391">                cir2.arguments().add(ast.newSimpleName(&quot;e&quot;));</span>
+<span class="nc" id="L392">                trs.setExpression(cir2);</span>
+<span class="nc" id="L393">                catchBlock.statements().add(trs);</span>
+<span class="nc" id="L394">                ts.catchClauses().add(createCatchBlock(ast, &quot;Exception&quot;, catchBlock));</span>
+
+                // method body
+
+<span class="nc" id="L398">                final Block body = ast.newBlock();</span>
+<span class="nc" id="L399">                body.statements().add(ts);</span>
+
+<span class="nc" id="L401">                md.setBody(body);</span>
+
+<span class="nc" id="L403">                return md;</span>
+            });
+<span class="nc" id="L405">        });</span>
+<span class="nc" id="L406">    }</span>
+
+    private void createNewBuilderMethod(final TypeBuilder builder) {
+
+<span class="nc" id="L410">        builder.createBodyContent((ast, cu) -&gt; {</span>
+<span class="nc" id="L411">            return Java.parseSingleList(ast, ASTParser.K_CLASS_BODY_DECLARATIONS,</span>
+                    &quot;/** Create new builder */ public static Builder newBuilder() {return new Builder();}&quot;,
+                    Java::firstBodyDeclaration);
+        });
+
+<span class="nc" id="L416">    }</span>
+
+    private void createServiceFields(final TypeBuilder builder, final Context context, final ConnectorType connectorType) {
+<span class="nc bnc" id="L419" title="All 2 branches missed.">        for (final Map.Entry&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; entry : context.getServiceDefinitions().getVersions().entrySet()) {</span>
+
+<span class="nc" id="L421">            final String version = Names.makeVersion(entry.getKey());</span>
+
+<span class="nc bnc" id="L423" title="All 2 branches missed.">            for (final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry : entry.getValue().entrySet()) {</span>
+<span class="nc" id="L424">                final String serviceName = Names.toCamelCase(serviceEntry.getKey(), false);</span>
+<span class="nc" id="L425">                final String serviceInstanceField = version + Names.toCamelCase(serviceName, true);</span>
+<span class="nc" id="L426">                final String serviceTypeName = makeServiceType(context, connectorType, version, serviceEntry, true);</span>
+
+<span class="nc" id="L428">                builder.createBodyContent((ast, cu) -&gt; {</span>
+
+<span class="nc" id="L430">                    final VariableDeclarationFragment vdf = ast.newVariableDeclarationFragment();</span>
+<span class="nc" id="L431">                    vdf.setName(ast.newSimpleName(serviceInstanceField));</span>
+<span class="nc" id="L432">                    final FieldDeclaration fd = ast.newFieldDeclaration(vdf);</span>
+
+<span class="nc" id="L434">                    fd.setType(ast.newSimpleType(ast.newName(serviceTypeName)));</span>
+
+<span class="nc" id="L436">                    JDTHelper.make(fd, ModifierKeyword.PRIVATE_KEYWORD, ModifierKeyword.FINAL_KEYWORD);</span>
+
+<span class="nc" id="L438">                    return Collections.singletonList(fd);</span>
+
+                });
+<span class="nc" id="L441">            }</span>
+<span class="nc" id="L442">        }</span>
+<span class="nc" id="L443">    }</span>
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void createConstructor(final TypeBuilder builder, final Context context, final ConnectorType connectorType) {
+<span class="nc" id="L447">        builder.createMethod((ast, cu) -&gt; {</span>
+<span class="nc" id="L448">            final MethodDeclaration md = ast.newMethodDeclaration();</span>
+
+<span class="nc" id="L450">            md.setConstructor(true);</span>
+<span class="nc" id="L451">            md.setName(ast.newSimpleName(&quot;Jms&quot; + connectorType.getSimpleTypeName()));</span>
+<span class="nc" id="L452">            makePrivate(md);</span>
+
+<span class="nc" id="L454">            md.parameters().add(JDTHelper.createParameter(ast, &quot;Builder&quot;, &quot;builder&quot;, ModifierKeyword.FINAL_KEYWORD));</span>
+
+<span class="nc" id="L456">            final Block body = ast.newBlock();</span>
+<span class="nc" id="L457">            md.setBody(body);</span>
+
+<span class="nc" id="L459">            final SuperConstructorInvocation s = ast.newSuperConstructorInvocation();</span>
+<span class="nc" id="L460">            body.statements().add(s);</span>
+
+<span class="nc" id="L462">            s.arguments().add(ast.newSimpleName(&quot;builder&quot;));</span>
+
+            // add throws
+<span class="nc" id="L465">            md.thrownExceptionTypes().add(ast.newSimpleType(ast.newName(&quot;javax.jms.JMSException&quot;)));</span>
+
+            // add service field instances
+
+<span class="nc bnc" id="L469" title="All 2 branches missed.">            for (final Map.Entry&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; entry : context.getServiceDefinitions().getVersions().entrySet()) {</span>
+
+<span class="nc" id="L471">                final String version = Names.makeVersion(entry.getKey());</span>
+
+<span class="nc bnc" id="L473" title="All 2 branches missed.">                for (final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry : entry.getValue().entrySet()) {</span>
+<span class="nc" id="L474">                    final String serviceName = Names.toCamelCase(serviceEntry.getKey(), false);</span>
+<span class="nc" id="L475">                    final String serviceInstanceField = version + Names.toCamelCase(serviceName, true);</span>
+<span class="nc" id="L476">                    final String serviceTypeName = makeServiceType(context, connectorType, version, serviceEntry, true);</span>
+
+<span class="nc" id="L478">                    createServiceInstance(md, serviceInstanceField, serviceTypeName);</span>
+
+<span class="nc" id="L480">                }</span>
+<span class="nc" id="L481">            }</span>
+
+            // return
+
+<span class="nc" id="L485">            return md;</span>
+        });
+<span class="nc" id="L487">    }</span>
+
+    private String makeServiceType(final Context context, final ConnectorType connectorType, final String version, final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry,
+            final boolean implementation) {
+<span class="nc bnc" id="L491" title="All 2 branches missed.">        if (implementation) {</span>
+<span class="nc" id="L492">            return context.fullQualifiedName(&quot;jms&quot;, connectorType.getPackageName(), version) + &quot;.&quot; + Names.toCamelCase(serviceEntry.getKey() + &quot;Impl&quot;, true);</span>
+        } else {
+<span class="nc" id="L494">            return context.fullQualifiedName(connectorType.getPackageName(), version) + &quot;.&quot; + Names.toCamelCase(serviceEntry.getKey(), true);</span>
+        }
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void createServiceInstance(final MethodDeclaration md, final String serviceInstanceField, final String serviceTypeName) {
+<span class="nc" id="L500">        final AST ast = md.getAST();</span>
+<span class="nc" id="L501">        final Block body = md.getBody();</span>
+
+<span class="nc" id="L503">        final Assignment as = ast.newAssignment();</span>
+
+        // assign to
+
+<span class="nc" id="L507">        final FieldAccess fa = ast.newFieldAccess();</span>
+<span class="nc" id="L508">        fa.setName(ast.newSimpleName(serviceInstanceField));</span>
+<span class="nc" id="L509">        fa.setExpression(ast.newThisExpression());</span>
+<span class="nc" id="L510">        as.setLeftHandSide(fa);</span>
+
+        // create instance
+
+<span class="nc" id="L514">        final ClassInstanceCreation cic = ast.newClassInstanceCreation();</span>
+<span class="nc" id="L515">        cic.setType(ast.newSimpleType(ast.newName(serviceTypeName)));</span>
+
+        // parameters
+
+        // new DevicesImpl(this.connection, this.executor, builder.payloadFormat(), builder.baseTopic());
+
+        {
+<span class="nc" id="L522">            final FieldAccess t = ast.newFieldAccess();</span>
+<span class="nc" id="L523">            t.setExpression(ast.newThisExpression());</span>
+<span class="nc" id="L524">            t.setName(ast.newSimpleName(&quot;connection&quot;));</span>
+<span class="nc" id="L525">            cic.arguments().add(t);</span>
+        }
+        {
+<span class="nc" id="L528">            final FieldAccess t = ast.newFieldAccess();</span>
+<span class="nc" id="L529">            t.setExpression(ast.newThisExpression());</span>
+<span class="nc" id="L530">            t.setName(ast.newSimpleName(&quot;executor&quot;));</span>
+<span class="nc" id="L531">            cic.arguments().add(t);</span>
+        }
+        {
+<span class="nc" id="L534">            final MethodInvocation mi = ast.newMethodInvocation();</span>
+<span class="nc" id="L535">            mi.setExpression(ast.newSimpleName(&quot;builder&quot;));</span>
+<span class="nc" id="L536">            mi.setName(ast.newSimpleName(&quot;payloadFormat&quot;));</span>
+<span class="nc" id="L537">            cic.arguments().add(mi);</span>
+        }
+        {
+<span class="nc" id="L540">            final MethodInvocation mi = ast.newMethodInvocation();</span>
+<span class="nc" id="L541">            mi.setExpression(ast.newSimpleName(&quot;builder&quot;));</span>
+<span class="nc" id="L542">            mi.setName(ast.newSimpleName(&quot;baseTopic&quot;));</span>
+<span class="nc" id="L543">            cic.arguments().add(mi);</span>
+        }
+
+        // set
+
+<span class="nc" id="L548">        as.setRightHandSide(cic);</span>
+
+        // add
+
+<span class="nc" id="L552">        body.statements().add(ast.newExpressionStatement(as));</span>
+<span class="nc" id="L553">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

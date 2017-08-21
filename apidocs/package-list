@@ -1,5 +1,4 @@
 de.dentrassi.asyncapi
-de.dentrassi.asyncapi.client
 de.dentrassi.asyncapi.format
 de.dentrassi.asyncapi.generator.java
 de.dentrassi.asyncapi.generator.java.gson

@@ -16,34 +16,35 @@
 
 package de.dentrassi.asyncapi.generator.java;
 
+import de.dentrassi.asyncapi.Type;
+
 public class PropertyInformation {
-    private final String typeName;
+    private final Type type;
     private final String name;
     private final String summary;
     private final String description;
 
-    public PropertyInformation(final String typeName, final String name, final String summary,
-<span class="nc" id="L26">            final String description) {</span>
-<span class="nc" id="L27">        this.typeName = typeName;</span>
-<span class="nc" id="L28">        this.name = name;</span>
-<span class="nc" id="L29">        this.summary = summary;</span>
-<span class="nc" id="L30">        this.description = description;</span>
-<span class="nc" id="L31">    }</span>
+<span class="nc" id="L27">    public PropertyInformation(final Type type, final String name, final String summary, final String description) {</span>
+<span class="nc" id="L28">        this.type = type;</span>
+<span class="nc" id="L29">        this.name = name;</span>
+<span class="nc" id="L30">        this.summary = summary;</span>
+<span class="nc" id="L31">        this.description = description;</span>
+<span class="nc" id="L32">    }</span>
 
-    public String getTypeName() {
-<span class="nc" id="L34">        return this.typeName;</span>
+    public Type getType() {
+<span class="nc" id="L35">        return this.type;</span>
     }
 
     public String getName() {
-<span class="nc" id="L38">        return this.name;</span>
+<span class="nc" id="L39">        return this.name;</span>
     }
 
     public String getSummary() {
-<span class="nc" id="L42">        return this.summary;</span>
+<span class="nc" id="L43">        return this.summary;</span>
     }
 
     public String getDescription() {
-<span class="nc" id="L46">        return this.description;</span>
+<span class="nc" id="L47">        return this.description;</span>
     }
 
 }

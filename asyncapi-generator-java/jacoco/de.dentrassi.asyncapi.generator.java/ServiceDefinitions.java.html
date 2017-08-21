@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ServiceDefinitions.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">AsyncAPI :: Java generator</a> &gt; <a href="index.source.html" class="el_package">de.dentrassi.asyncapi.generator.java</a> &gt; <span class="el_source">ServiceDefinitions.java</span></div><h1>ServiceDefinitions.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (C) 2017 Jens Reimann &lt;jreimann@redhat.com&gt;
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package de.dentrassi.asyncapi.generator.java;
+
+import static java.util.Arrays.asList;
+import static java.util.Optional.empty;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import de.dentrassi.asyncapi.AsyncApi;
+import de.dentrassi.asyncapi.Topic;
+import de.dentrassi.asyncapi.generator.java.util.Version;
+
+public class ServiceDefinitions {
+
+    public static class VersionedService {
+        private final TypeInformation type;
+        private final Version version;
+
+<span class="nc" id="L39">        public VersionedService(final TypeInformation type, final Version version) {</span>
+<span class="nc" id="L40">            this.type = type;</span>
+<span class="nc" id="L41">            this.version = version;</span>
+<span class="nc" id="L42">        }</span>
+
+        public TypeInformation getType() {
+<span class="nc" id="L45">            return this.type;</span>
+        }
+
+        public Version getVersion() {
+<span class="nc" id="L49">            return this.version;</span>
+        }
+    }
+
+    private final Map&lt;Topic, TopicInformation&gt; topics;
+    private final Map&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versions;
+    private final Map&lt;String, VersionedService&gt; latest;
+
+<span class="nc" id="L57">    public ServiceDefinitions(final Map&lt;Topic, TopicInformation&gt; topics, final Map&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versions, final Map&lt;String, VersionedService&gt; latest) {</span>
+<span class="nc" id="L58">        this.topics = Collections.unmodifiableMap(topics);</span>
+<span class="nc" id="L59">        this.versions = Collections.unmodifiableMap(versions); // FIXME: contained maps are still mutable</span>
+<span class="nc" id="L60">        this.latest = Collections.unmodifiableMap(latest);</span>
+<span class="nc" id="L61">    }</span>
+
+    public Map&lt;Topic, TopicInformation&gt; getTopics() {
+<span class="nc" id="L64">        return this.topics;</span>
+    }
+
+    public Map&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; getVersions() {
+<span class="nc" id="L68">        return this.versions;</span>
+    }
+
+    public Map&lt;String, VersionedService&gt; getLatest() {
+<span class="nc" id="L72">        return this.latest;</span>
+    }
+
+    public static ServiceDefinitions build(final AsyncApi api, final boolean validateTopicSyntax) {
+
+<span class="nc" id="L77">        final Map&lt;Topic, TopicInformation&gt; topics = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L78">        final Map&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versions = new HashMap&lt;&gt;();</span>
+
+<span class="nc bnc" id="L80" title="All 2 branches missed.">        for (final Topic topic : api.getTopics()) {</span>
+
+            TopicInformation ti;
+            try {
+<span class="nc" id="L84">                ti = TopicInformation.fromString(topic.getName());</span>
+<span class="nc" id="L85">            } catch (final IllegalArgumentException e) {</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">                if (validateTopicSyntax) {</span>
+<span class="nc" id="L87">                    throw e;</span>
+                }
+                // fall back to default
+<span class="nc" id="L90">                ti = new TopicInformation(&quot;Topics&quot;, &quot;1&quot;, &quot;event&quot;, new LinkedList&lt;&gt;(asList(topic.getName().split(&quot;\\.&quot;))), &quot;send&quot;, empty());</span>
+<span class="nc" id="L91">            }</span>
+
+<span class="nc" id="L93">            addTopic(versions, ti, topic);</span>
+<span class="nc" id="L94">            topics.put(topic, ti);</span>
+<span class="nc" id="L95">        }</span>
+
+<span class="nc" id="L97">        final Map&lt;String, VersionedService&gt; latest = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        for (final Map.Entry&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versionEntry : versions.entrySet()) {</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">            for (final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry : versionEntry.getValue().entrySet()) {</span>
+
+<span class="nc" id="L101">                final TypeInformation serviceType = Generator.createServiceTypeInformation(serviceEntry);</span>
+
+                // record latest version
+
+<span class="nc" id="L105">                final Version v = Version.valueOf(versionEntry.getKey());</span>
+<span class="nc" id="L106">                final VersionedService lv = latest.get(serviceType.getName());</span>
+<span class="nc bnc" id="L107" title="All 4 branches missed.">                if (lv == null || v.compareTo(lv.getVersion()) &gt; 0) {</span>
+<span class="nc" id="L108">                    latest.put(serviceType.getName(), new VersionedService(serviceType, v));</span>
+                }
+
+<span class="nc" id="L111">            }</span>
+<span class="nc" id="L112">        }</span>
+
+<span class="nc" id="L114">        return new ServiceDefinitions(topics, versions, latest);</span>
+
+    }
+
+    private static void addTopic(final Map&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versions, final TopicInformation ti, final Topic topic) {
+
+<span class="nc" id="L120">        Map&lt;String, List&lt;Topic&gt;&gt; version = versions.get(ti.getVersion());</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (version == null) {</span>
+<span class="nc" id="L122">            version = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L123">            versions.put(ti.getVersion(), version);</span>
+        }
+
+<span class="nc" id="L126">        List&lt;Topic&gt; service = version.get(ti.getService());</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        if (service == null) {</span>
+<span class="nc" id="L128">            service = new LinkedList&lt;&gt;();</span>
+<span class="nc" id="L129">            version.put(ti.getService(), service);</span>
+        }
+
+<span class="nc" id="L132">        service.add(topic);</span>
+<span class="nc" id="L133">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

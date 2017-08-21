@@ -16,34 +16,50 @@
 
 package de.dentrassi.asyncapi.generator.java;
 
+import static de.dentrassi.asyncapi.generator.java.PackageTypeBuilder.asPropertyName;
 import static de.dentrassi.asyncapi.generator.java.PackageTypeBuilder.asTypeName;
-import static java.util.Arrays.asList;
-import static java.util.Optional.empty;
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makeProtected;
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makePublic;
+import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.newStringLiteral;
+import static de.dentrassi.asyncapi.generator.java.util.Names.makeVersion;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.Javadoc;
 import org.eclipse.jdt.core.dom.MemberValuePair;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.Modifier.ModifierKeyword;
 import org.eclipse.jdt.core.dom.NormalAnnotation;
 import org.eclipse.jdt.core.dom.ParameterizedType;
+import org.eclipse.jdt.core.dom.ReturnStatement;
 import org.eclipse.jdt.core.dom.SimpleType;
 import org.eclipse.jdt.core.dom.StringLiteral;
 import org.eclipse.jdt.core.dom.TagElement;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.TypeLiteral;
+import org.eclipse.jdt.core.dom.TypeParameter;
 
+import de.dentrassi.asyncapi.ArrayType;
 import de.dentrassi.asyncapi.AsyncApi;
 import de.dentrassi.asyncapi.CoreType;
 import de.dentrassi.asyncapi.EnumType;
@@ -51,399 +67,749 @@ import de.dentrassi.asyncapi.Information;
 import de.dentrassi.asyncapi.Message;
 import de.dentrassi.asyncapi.MessageReference;
 import de.dentrassi.asyncapi.ObjectType;
+import de.dentrassi.asyncapi.ParentableType;
 import de.dentrassi.asyncapi.Property;
 import de.dentrassi.asyncapi.Topic;
 import de.dentrassi.asyncapi.Type;
 import de.dentrassi.asyncapi.TypeReference;
+import de.dentrassi.asyncapi.generator.java.ServiceDefinitions.VersionedService;
+import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
 
 public class Generator {
+
+    private static final String TYPE_NAME_CONNECTOR = &quot;de.dentrassi.asyncapi.Connector&quot;;
+
+    public static final class Options {
+        private Path targetPath;
+<span class="nc" id="L84">        private Charset characterSet = StandardCharsets.UTF_8;</span>
+        private String basePackage;
+
+<span class="nc" id="L87">        private Options() {</span>
+<span class="nc" id="L88">        }</span>
+
+<span class="nc" id="L90">        private Options(final Options other) {</span>
+<span class="nc" id="L91">            this.targetPath = other.targetPath;</span>
+<span class="nc" id="L92">            this.characterSet = other.characterSet;</span>
+<span class="nc" id="L93">            this.basePackage = other.basePackage;</span>
+<span class="nc" id="L94">        }</span>
+
+        public String getBasePackage() {
+<span class="nc" id="L97">            return this.basePackage;</span>
+        }
+
+        public Charset getCharacterSet() {
+<span class="nc" id="L101">            return this.characterSet;</span>
+        }
+
+        public Path getTargetPath() {
+<span class="nc" id="L105">            return this.targetPath;</span>
+        }
+
+        private void validate(final List&lt;Exception&gt; errors) {
+<span class="nc bnc" id="L109" title="All 2 branches missed.">            if (this.targetPath == null) {</span>
+<span class="nc" id="L110">                errors.add(new IllegalStateException(&quot;'targetPath' is not set&quot;));</span>
+            }
+<span class="nc" id="L112">        }</span>
+    }
+
+    public static final class Builder {
+
+<span class="nc" id="L117">        private final Options options = new Options();</span>
+
+<span class="nc" id="L119">        private boolean validateTopicSyntax = true;</span>
+
+<span class="nc" id="L121">        private final Set&lt;GeneratorExtension&gt; extensions = new HashSet&lt;&gt;();</span>
+
+<span class="nc" id="L123">        private Builder() {</span>
+<span class="nc" id="L124">        }</span>
+
+        public void addExtension(final GeneratorExtension extension) {
+<span class="nc" id="L127">            Objects.requireNonNull(extension);</span>
+
+<span class="nc" id="L129">            this.extensions.add(extension);</span>
+<span class="nc" id="L130">        }</span>
+
+        public Builder validateTopicSyntax(final boolean validateTopicSyntax) {
+<span class="nc" id="L133">            this.validateTopicSyntax = validateTopicSyntax;</span>
+<span class="nc" id="L134">            return this;</span>
+        }
+
+        public Builder targetPath(final Path targetPath) {
+<span class="nc" id="L138">            Objects.requireNonNull(targetPath);</span>
+
+<span class="nc" id="L140">            this.options.targetPath = targetPath;</span>
+<span class="nc" id="L141">            return this;</span>
+        }
+
+        public Builder basePackage(final String basePackage) {
+<span class="nc" id="L145">            this.options.basePackage = basePackage;</span>
+<span class="nc" id="L146">            return this;</span>
+        }
+
+        public Builder characterSet(final Charset characterSet) {
+<span class="nc" id="L150">            this.options.characterSet = characterSet;</span>
+<span class="nc" id="L151">            return this;</span>
+        }
+
+        public Generator build(final AsyncApi api) {
+
+<span class="nc" id="L156">            final LinkedList&lt;Exception&gt; errors = new LinkedList&lt;&gt;();</span>
+<span class="nc" id="L157">            this.options.validate(errors);</span>
+
+<span class="nc bnc" id="L159" title="All 2 branches missed.">            if (!errors.isEmpty()) {</span>
+<span class="nc" id="L160">                final RuntimeException e = new RuntimeException(&quot;Invalid generator settings&quot;, errors.pollFirst());</span>
+<span class="nc" id="L161">                errors.stream().forEach(e::addSuppressed);</span>
+<span class="nc" id="L162">                throw e;</span>
+            }
+
+<span class="nc" id="L165">            return new Generator(api, new Options(this.options), this.validateTopicSyntax, new ArrayList&lt;&gt;(this.extensions));</span>
+        }
+    }
+
+    public interface Context {
+        public TypeBuilder createTypeBuilder(final String localPackageName);
+
+        public String fullQualifiedName(String... localName);
+
+        public ServiceDefinitions getServiceDefinitions();
+    }
+
+    private static final String TYPE_NAME_MESSAGE_INTERFACE = &quot;de.dentrassi.asyncapi.Message&quot;;
+
+    private static final String TYPE_NAME_PUBSUB_CLASS = &quot;de.dentrassi.asyncapi.PublishSubscribe&quot;;
+
+    private static final String TYPE_NAME_SUB_CLASS = &quot;de.dentrassi.asyncapi.Subscribe&quot;;
+
+    private static final String TYPE_NAME_PUB_CLASS = &quot;de.dentrassi.asyncapi.Publish&quot;;
+
+    private static final String TYPE_NAME_TOPIC_ANN = &quot;de.dentrassi.asyncapi.Topic&quot;;
+
+    private static final String TYPE_NAME_ABSTRACT_CONNECTOR_BUILDER = &quot;de.dentrassi.asyncapi.Connector.AbstractBuilder&quot;;
+
+    public static Builder newBuilder() {
+<span class="nc" id="L190">        return new Builder();</span>
+    }
+
     private final AsyncApi api;
-    private Path target;
-<span class="nc" id="L62">    private Charset characterSet = StandardCharsets.UTF_8;</span>
-    private String basePackage;
-<span class="nc" id="L64">    private boolean validateTopicSyntax = true;</span>
+    private final boolean validateTopicSyntax;
+<span class="nc" id="L195">    private List&lt;GeneratorExtension&gt; extensions = new ArrayList&lt;&gt;();</span>
 
-<span class="nc" id="L66">    public Generator(final AsyncApi api) {</span>
-<span class="nc" id="L67">        this.api = api;</span>
-<span class="nc" id="L68">    }</span>
+    private final Options options;
 
-    public Generator basePackage(final String basePackage) {
-<span class="nc" id="L71">        this.basePackage = basePackage;</span>
-<span class="nc" id="L72">        return this;</span>
-    }
+<span class="nc" id="L199">    private final Context context = new Context() {</span>
+        @Override
+        public TypeBuilder createTypeBuilder(final String localPackageName) {
+<span class="nc" id="L202">            return Generator.this.createTypeBuilder(localPackageName);</span>
+        }
 
-    public Generator target(final Path target) {
-<span class="nc" id="L76">        this.target = target;</span>
-<span class="nc" id="L77">        return this;</span>
-    }
+        @Override
+        public String fullQualifiedName(final String... localName) {
+<span class="nc" id="L207">            return packageName(localName);</span>
+        }
 
-    public Generator characterSet(final Charset characterSet) {
-<span class="nc" id="L81">        this.characterSet = characterSet;</span>
-<span class="nc" id="L82">        return this;</span>
-    }
+        @Override
+        public ServiceDefinitions getServiceDefinitions() {
+<span class="nc" id="L212">            return Generator.this.serviceDefinitions;</span>
+        }
+    };
 
-    public Generator validateTopicSyntax(final boolean validateTopicSyntax) {
-<span class="nc" id="L86">        this.validateTopicSyntax = validateTopicSyntax;</span>
-<span class="nc" id="L87">        return this;</span>
-    }
+    private final ServiceDefinitions serviceDefinitions;
+
+<span class="nc" id="L218">    private Generator(final AsyncApi api, final Options options, final boolean validateTopicSyntax, final List&lt;GeneratorExtension&gt; extensions) {</span>
+<span class="nc" id="L219">        this.api = api;</span>
+<span class="nc" id="L220">        this.options = options;</span>
+<span class="nc" id="L221">        this.validateTopicSyntax = validateTopicSyntax;</span>
+<span class="nc" id="L222">        this.extensions = extensions;</span>
+
+<span class="nc" id="L224">        this.serviceDefinitions = ServiceDefinitions.build(this.api, this.validateTopicSyntax);</span>
+<span class="nc" id="L225">    }</span>
 
     public void generate() throws IOException {
-<span class="nc" id="L91">        Files.createDirectories(this.target);</span>
+<span class="nc" id="L228">        Files.createDirectories(this.options.getTargetPath());</span>
 
-<span class="nc" id="L93">        generateRoot();</span>
-<span class="nc" id="L94">        generateMessages();</span>
-<span class="nc" id="L95">        generateTypes();</span>
-<span class="nc" id="L96">        generateTopics();</span>
-<span class="nc" id="L97">    }</span>
+<span class="nc" id="L230">        generateRoot();</span>
+<span class="nc" id="L231">        generateMessages();</span>
+<span class="nc" id="L232">        generateTypes();</span>
+<span class="nc" id="L233">        generateTopics();</span>
+
+<span class="nc bnc" id="L235" title="All 2 branches missed.">        for (final GeneratorExtension extension : this.extensions) {</span>
+<span class="nc" id="L236">            extension.generate(this.api, this.options, this.context);</span>
+<span class="nc" id="L237">        }</span>
+<span class="nc" id="L238">    }</span>
+
+    private void generateTopics() {
+<span class="nc" id="L241">        renderServices(ConnectorType.CLIENT);</span>
+<span class="nc" id="L242">        renderServices(ConnectorType.SERVER);</span>
+<span class="nc" id="L243">        renderConnector(ConnectorType.CLIENT);</span>
+<span class="nc" id="L244">        renderConnector(ConnectorType.SERVER);</span>
+<span class="nc" id="L245">    }</span>
+
+    private TypeBuilder createTypeBuilder(final String... localPackageName) {
+<span class="nc" id="L248">        return new PackageTypeBuilder(this.options.getTargetPath(), packageName(localPackageName), this.options.getCharacterSet(), type -&gt; null, this::lookupType);</span>
+    }
+
+    private void renderConnector(final ConnectorType connectorType) {
+
+<span class="nc" id="L253">        final TypeBuilder builder = createTypeBuilder();</span>
+
+<span class="nc" id="L255">        final Consumer&lt;TypeDeclaration&gt; typeCustomizer = TypeBuilder.asInterface(true) //</span>
+<span class="nc" id="L256">                .andThen(TypeBuilder.superInterfaces(Arrays.asList(TYPE_NAME_CONNECTOR)));</span>
+
+<span class="nc" id="L258">        builder.createType(new TypeInformation(connectorType.getSimpleTypeName(), null, null), typeCustomizer, b -&gt; {</span>
+
+<span class="nc" id="L260">            renderDefaultConnectorBuilder(b, connectorType);</span>
+
+<span class="nc bnc" id="L262" title="All 2 branches missed.">            for (final Map.Entry&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versionEntry : this.serviceDefinitions.getVersions().entrySet()) {</span>
+<span class="nc" id="L263">                final String version = makeVersion(versionEntry.getKey());</span>
+
+<span class="nc" id="L265">                b.createType(new TypeInformation(version.toUpperCase(), null, null), true, false, vb -&gt; {</span>
+
+<span class="nc bnc" id="L267" title="All 2 branches missed.">                    for (final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry : versionEntry.getValue().entrySet()) {</span>
+
+<span class="nc" id="L269">                        final TypeInformation serviceType = createServiceTypeInformation(serviceEntry);</span>
+
+<span class="nc" id="L271">                        vb.createMethod((ast, cu) -&gt; {</span>
+<span class="nc" id="L272">                            final MethodDeclaration md = ast.newMethodDeclaration();</span>
+<span class="nc" id="L273">                            md.setName(ast.newSimpleName(PackageTypeBuilder.asPropertyName(serviceType.getName())));</span>
+<span class="nc" id="L274">                            md.setReturnType2(ast.newSimpleType(ast.newName(packageName(connectorType.getPackageName(), version, serviceType.getName()))));</span>
+<span class="nc" id="L275">                            return md;</span>
+                        });
+
+<span class="nc" id="L278">                    }</span>
+
+<span class="nc" id="L280">                });</span>
+
+                // create version method - e.g. v1()
+
+<span class="nc" id="L284">                b.createMethod((ast, cu) -&gt; {</span>
+<span class="nc" id="L285">                    final MethodDeclaration md = ast.newMethodDeclaration();</span>
+<span class="nc" id="L286">                    md.setName(ast.newSimpleName(version));</span>
+<span class="nc" id="L287">                    md.setReturnType2(ast.newSimpleType(ast.newSimpleName(version.toUpperCase())));</span>
+<span class="nc" id="L288">                    return md;</span>
+                });
+
+<span class="nc" id="L291">            }</span>
+
+            // create latest versions
+
+<span class="nc bnc" id="L295" title="All 2 branches missed.">            for (final Map.Entry&lt;String, VersionedService&gt; latestEntry : this.serviceDefinitions.getLatest().entrySet()) {</span>
+<span class="nc" id="L296">                b.createMethod((ast, cu) -&gt; {</span>
+<span class="nc" id="L297">                    return createReturnLatestVersionService(latestEntry, ast, connectorType);</span>
+                });
+<span class="nc" id="L299">            }</span>
+
+<span class="nc" id="L301">        });</span>
+
+<span class="nc" id="L303">    }</span>
 
     @SuppressWarnings(&quot;unchecked&quot;)
-    private void generateTopics() {
+    private static ParameterizedType parametrizeSimple(final org.eclipse.jdt.core.dom.Type original, final String... parameters) {
+<span class="nc" id="L307">        final AST ast = original.getAST();</span>
 
-        // prepare
+<span class="nc" id="L309">        final ParameterizedType result = ast.newParameterizedType(original);</span>
 
-<span class="nc" id="L104">        final Map&lt;Topic, TopicInformation&gt; topics = new LinkedHashMap&lt;&gt;(this.api.getTopics().size());</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">        for (final String name : parameters) {</span>
+<span class="nc" id="L312">            final SimpleType type = ast.newSimpleType(ast.newSimpleName(name));</span>
+<span class="nc" id="L313">            result.typeArguments().add(type);</span>
+        }
 
-<span class="nc" id="L106">        final Map&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versions = new HashMap&lt;&gt;();</span>
+<span class="nc" id="L316">        return result;</span>
+    }
 
-<span class="nc bnc" id="L108" title="All 2 branches missed.">        for (final Topic topic : this.api.getTopics()) {</span>
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void renderDefaultConnectorBuilder(final TypeBuilder builder, final ConnectorType connectorType) {
 
-            TopicInformation ti;
-            try {
-<span class="nc" id="L112">                ti = TopicInformation.fromString(topic.getName());</span>
-<span class="nc" id="L113">            } catch (final IllegalArgumentException e) {</span>
-<span class="nc bnc" id="L114" title="All 2 branches missed.">                if (this.validateTopicSyntax) {</span>
-<span class="nc" id="L115">                    throw e;</span>
+<span class="nc" id="L322">        Consumer&lt;TypeDeclaration&gt; typeCustomizer = td -&gt; {</span>
+<span class="nc" id="L323">            final AST ast = td.getAST();</span>
+
+<span class="nc" id="L325">            final SimpleType st = ast.newSimpleType(ast.newName(TYPE_NAME_ABSTRACT_CONNECTOR_BUILDER));</span>
+
+<span class="nc" id="L327">            td.setSuperclassType(parametrizeSimple(st, &quot;B&quot;, &quot;C&quot;));</span>
+<span class="nc" id="L328">        };</span>
+
+<span class="nc" id="L330">        typeCustomizer = typeCustomizer.andThen(td -&gt; {</span>
+<span class="nc" id="L331">            final AST ast = td.getAST();</span>
+
+<span class="nc" id="L333">            final TypeParameter b = ast.newTypeParameter();</span>
+<span class="nc" id="L334">            b.setName(ast.newSimpleName(&quot;B&quot;));</span>
+<span class="nc" id="L335">            b.typeBounds().add(parametrizeSimple(ast.newSimpleType(ast.newSimpleName(&quot;Builder&quot;)), &quot;B&quot;, &quot;C&quot;));</span>
+
+<span class="nc" id="L337">            final TypeParameter c = ast.newTypeParameter();</span>
+<span class="nc" id="L338">            c.setName(ast.newSimpleName(&quot;C&quot;));</span>
+<span class="nc" id="L339">            c.typeBounds().add(ast.newSimpleType(ast.newSimpleName(connectorType.getSimpleTypeName())));</span>
+
+<span class="nc" id="L341">            td.typeParameters().add(b);</span>
+<span class="nc" id="L342">            td.typeParameters().add(c);</span>
+<span class="nc" id="L343">        });</span>
+
+<span class="nc" id="L345">        typeCustomizer = typeCustomizer.andThen(td -&gt; JDTHelper.make(td, ModifierKeyword.STATIC_KEYWORD, ModifierKeyword.ABSTRACT_KEYWORD));</span>
+
+<span class="nc" id="L347">        builder.createType(new TypeInformation(&quot;Builder&quot;, null, null), typeCustomizer, b -&gt; {</span>
+
+<span class="nc" id="L349">            b.createMethod((ast, cu) -&gt; {</span>
+<span class="nc" id="L350">                final MethodDeclaration md = ast.newMethodDeclaration();</span>
+<span class="nc" id="L351">                md.setConstructor(true);</span>
+<span class="nc" id="L352">                md.setName(ast.newSimpleName(&quot;Builder&quot;));</span>
+<span class="nc" id="L353">                makeProtected(md);</span>
+
+<span class="nc" id="L355">                final Block body = ast.newBlock();</span>
+<span class="nc" id="L356">                md.setBody(body);</span>
+
+<span class="nc bnc" id="L358" title="All 4 branches missed.">                if (this.api.getHost() != null &amp;&amp; !this.api.getHost().isEmpty()) {</span>
+<span class="nc" id="L359">                    final MethodInvocation mi = ast.newMethodInvocation();</span>
+<span class="nc" id="L360">                    mi.setName(ast.newSimpleName(&quot;host&quot;));</span>
+<span class="nc" id="L361">                    mi.arguments().add(newStringLiteral(ast, this.api.getHost()));</span>
+<span class="nc" id="L362">                    body.statements().add(ast.newExpressionStatement(mi));</span>
                 }
-                // fall back to default
-<span class="nc" id="L118">                ti = new TopicInformation(&quot;Topics&quot;, &quot;1&quot;, &quot;event&quot;, new LinkedList&lt;&gt;(asList(topic.getName().split(&quot;\\.&quot;))), &quot;send&quot;, empty());</span>
-<span class="nc" id="L119">            }</span>
 
-<span class="nc" id="L121">            addTopic(versions, ti, topic);</span>
-<span class="nc" id="L122">            topics.put(topic, ti);</span>
-<span class="nc" id="L123">        }</span>
+<span class="nc bnc" id="L365" title="All 4 branches missed.">                if (this.api.getBaseTopic() != null &amp;&amp; !this.api.getBaseTopic().isEmpty()) {</span>
+<span class="nc" id="L366">                    final MethodInvocation mi = ast.newMethodInvocation();</span>
+<span class="nc" id="L367">                    mi.setName(ast.newSimpleName(&quot;baseTopic&quot;));</span>
+<span class="nc" id="L368">                    mi.arguments().add(newStringLiteral(ast, this.api.getBaseTopic()));</span>
+<span class="nc" id="L369">                    body.statements().add(ast.newExpressionStatement(mi));</span>
+                }
 
-        // render
+<span class="nc" id="L372">                return md;</span>
+            });
 
-<span class="nc bnc" id="L127" title="All 2 branches missed.">        for (final Map.Entry&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versionEntry : versions.entrySet()) {</span>
+<span class="nc" id="L375">        });</span>
+<span class="nc" id="L376">    }</span>
 
-<span class="nc" id="L129">            final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName(makeVersion(versionEntry.getKey())), this.characterSet, type -&gt; null);</span>
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private MethodDeclaration createReturnLatestVersionService(final Map.Entry&lt;String, VersionedService&gt; latestEntry, final AST ast, final ConnectorType connectorType) {
+<span class="nc" id="L380">        final String version = makeVersion(latestEntry.getValue().getVersion().toString());</span>
+<span class="nc" id="L381">        final String serviceType = packageName(connectorType.getPackageName(), version, latestEntry.getValue().getType().getName());</span>
 
-<span class="nc bnc" id="L131" title="All 2 branches missed.">            for (final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry : versionEntry.getValue().entrySet()) {</span>
-<span class="nc" id="L132">                builder.createType(new TypeInformation(asTypeName(serviceEntry.getKey()), null, null), true, b -&gt; {</span>
+<span class="nc" id="L383">        final MethodDeclaration md = ast.newMethodDeclaration();</span>
 
-<span class="nc bnc" id="L134" title="All 2 branches missed.">                    for (final Topic topic : serviceEntry.getValue()) {</span>
-<span class="nc" id="L135">                        b.createMethod((ast, cu) -&gt; {</span>
+<span class="nc" id="L385">        md.setName(ast.newSimpleName(asPropertyName(latestEntry.getKey())));</span>
+<span class="nc" id="L386">        md.setReturnType2(ast.newSimpleType(ast.newName(serviceType)));</span>
 
-<span class="nc" id="L137">                            final TopicInformation ti = topics.get(topic);</span>
+<span class="nc" id="L388">        md.modifiers().add(ast.newModifier(ModifierKeyword.DEFAULT_KEYWORD));</span>
+
+<span class="nc" id="L390">        final Block block = ast.newBlock();</span>
+<span class="nc" id="L391">        md.setBody(block);</span>
+
+<span class="nc" id="L393">        final ReturnStatement ret = ast.newReturnStatement();</span>
+<span class="nc" id="L394">        block.statements().add(ret);</span>
+
+<span class="nc" id="L396">        final MethodInvocation versionMethod = ast.newMethodInvocation();</span>
+<span class="nc" id="L397">        versionMethod.setName(ast.newSimpleName(version.toLowerCase()));</span>
+
+<span class="nc" id="L399">        final MethodInvocation serviceMethod = ast.newMethodInvocation();</span>
+<span class="nc" id="L400">        serviceMethod.setName(ast.newSimpleName(asPropertyName(latestEntry.getKey())));</span>
+<span class="nc" id="L401">        serviceMethod.setExpression(versionMethod);</span>
+
+<span class="nc" id="L403">        ret.setExpression(serviceMethod);</span>
+
+<span class="nc" id="L405">        return md;</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    private void renderServices(final ConnectorType connectorType) {
+<span class="nc bnc" id="L410" title="All 2 branches missed.">        for (final Map.Entry&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versionEntry : this.serviceDefinitions.getVersions().entrySet()) {</span>
+
+<span class="nc" id="L412">            final String packageName = connectorType.getPackageName();</span>
+<span class="nc" id="L413">            final String version = makeVersion(versionEntry.getKey());</span>
+<span class="nc" id="L414">            final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName(packageName, version), this.options.getCharacterSet(), type -&gt; null,</span>
+                    this::lookupType);
+
+<span class="nc bnc" id="L417" title="All 2 branches missed.">            for (final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry : versionEntry.getValue().entrySet()) {</span>
+<span class="nc" id="L418">                builder.createType(createServiceTypeInformation(serviceEntry), true, false, b -&gt; {</span>
+
+<span class="nc bnc" id="L420" title="All 2 branches missed.">                    for (final Topic topic : serviceEntry.getValue()) {</span>
+<span class="nc" id="L421">                        b.createMethod((ast, cu) -&gt; {</span>
+
+<span class="nc" id="L423">                            final TopicInformation ti = this.serviceDefinitions.getTopics().get(topic);</span>
 
                             // new method
 
-<span class="nc" id="L141">                            final MethodDeclaration md = ast.newMethodDeclaration();</span>
-<span class="nc" id="L142">                            md.setName(ast.newSimpleName(makeTopicMethodName(ti)));</span>
+<span class="nc" id="L427">                            final MethodDeclaration md = ast.newMethodDeclaration();</span>
+<span class="nc" id="L428">                            md.setName(ast.newSimpleName(makeTopicMethodName(ti)));</span>
 
                             // return type
 
-<span class="nc" id="L146">                            final SimpleType eventType = ast.newSimpleType(ast.newName(&quot;de.dentrassi.asyncapi.Topic&quot;));</span>
-
-<span class="nc" id="L148">                            final ParameterizedType type = ast.newParameterizedType(eventType);</span>
-
-                            final org.eclipse.jdt.core.dom.Type pub;
-                            final org.eclipse.jdt.core.dom.Type sub;
-
-<span class="nc bnc" id="L153" title="All 2 branches missed.">                            if (topic.getPublish() == null) {</span>
-<span class="nc" id="L154">                                pub = ast.newWildcardType();</span>
-                            } else {
-<span class="nc" id="L156">                                pub = ast.newSimpleType(ast.newName(messageTypeName(topic.getPublish())));</span>
-                            }
-
-<span class="nc bnc" id="L159" title="All 2 branches missed.">                            if (topic.getSubscribe() == null) {</span>
-<span class="nc" id="L160">                                sub = ast.newWildcardType();</span>
-                            } else {
-<span class="nc" id="L162">                                sub = ast.newSimpleType(ast.newName(messageTypeName(topic.getSubscribe())));</span>
-                            }
-
-<span class="nc" id="L165">                            type.typeArguments().add(pub);</span>
-<span class="nc" id="L166">                            type.typeArguments().add(sub);</span>
-
                             // set return type
 
-<span class="nc" id="L170">                            md.setReturnType2(type);</span>
+<span class="nc" id="L434">                            md.setReturnType2(evalEventMethodType(ast, topic, this.context, connectorType));</span>
 
                             // assign annotation
 
-<span class="nc" id="L174">                            final NormalAnnotation an = ast.newNormalAnnotation();</span>
-<span class="nc" id="L175">                            an.setTypeName(ast.newName(&quot;de.dentrassi.asyncapi.TopicMethod&quot;));</span>
-<span class="nc" id="L176">                            an.values().add(newKeyValueString(ast, &quot;name&quot;, topic.getName()));</span>
-<span class="nc bnc" id="L177" title="All 2 branches missed.">                            if (topic.getPublish() != null) {</span>
-<span class="nc" id="L178">                                an.values().add(newKeyValueClass(ast, &quot;publish&quot;, messageTypeName(topic.getPublish())));</span>
+<span class="nc" id="L438">                            final NormalAnnotation an = ast.newNormalAnnotation();</span>
+<span class="nc" id="L439">                            an.setTypeName(ast.newName(TYPE_NAME_TOPIC_ANN));</span>
+<span class="nc" id="L440">                            an.values().add(newKeyValueString(ast, &quot;name&quot;, topic.getName()));</span>
+<span class="nc bnc" id="L441" title="All 2 branches missed.">                            if (topic.getPublish() != null) {</span>
+<span class="nc" id="L442">                                an.values().add(newKeyValueClass(ast, &quot;publish&quot;, messageTypeName(topic.getPublish(), this.context)));</span>
                             }
-<span class="nc bnc" id="L180" title="All 2 branches missed.">                            if (topic.getSubscribe() != null) {</span>
-<span class="nc" id="L181">                                an.values().add(newKeyValueClass(ast, &quot;subscribe&quot;, messageTypeName(topic.getSubscribe())));</span>
+<span class="nc bnc" id="L444" title="All 2 branches missed.">                            if (topic.getSubscribe() != null) {</span>
+<span class="nc" id="L445">                                an.values().add(newKeyValueClass(ast, &quot;subscribe&quot;, messageTypeName(topic.getSubscribe(), this.context)));</span>
                             }
-<span class="nc" id="L183">                            md.modifiers().add(an);</span>
+<span class="nc" id="L447">                            md.modifiers().add(an);</span>
 
                             // make public
 
-<span class="nc" id="L187">                            PackageTypeBuilder.makePublic(md);</span>
+<span class="nc" id="L451">                            makePublic(md);</span>
 
                             // return
 
-<span class="nc" id="L191">                            return md;</span>
+<span class="nc" id="L455">                            return md;</span>
 
                         });
 
-<span class="nc" id="L195">                    }</span>
+<span class="nc" id="L459">                    }</span>
 
-<span class="nc" id="L197">                });</span>
-<span class="nc" id="L198">            }</span>
+<span class="nc" id="L461">                });</span>
+<span class="nc" id="L462">            }</span>
 
-<span class="nc" id="L200">        }</span>
-<span class="nc" id="L201">    }</span>
+<span class="nc" id="L464">        }</span>
+<span class="nc" id="L465">    }</span>
+
+    public static TypeInformation createServiceTypeInformation(final Map.Entry&lt;String, List&lt;Topic&gt;&gt; serviceEntry) {
+<span class="nc" id="L468">        return new TypeInformation(asTypeName(serviceEntry.getKey()), null, null);</span>
+    }
+
+    @SuppressWarnings(&quot;unchecked&quot;)
+    public static ParameterizedType evalEventMethodType(final AST ast, final Topic topic, final Context context, final ConnectorType connectorType) {
+
+<span class="nc" id="L474">        final MessageReference pubMsg = connectorType.getPublish(topic);</span>
+<span class="nc" id="L475">        final MessageReference subMsg = connectorType.getSubscribe(topic);</span>
+
+<span class="nc bnc" id="L477" title="All 4 branches missed.">        if (pubMsg == null &amp;&amp; subMsg == null) {</span>
+<span class="nc" id="L478">            return null;</span>
+        }
+
+        final SimpleType eventType;
+
+<span class="nc bnc" id="L483" title="All 4 branches missed.">        if (pubMsg != null &amp;&amp; subMsg != null) {</span>
+<span class="nc" id="L484">            eventType = ast.newSimpleType(ast.newName(TYPE_NAME_PUBSUB_CLASS));</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">        } else if (pubMsg != null) {</span>
+<span class="nc" id="L486">            eventType = ast.newSimpleType(ast.newName(TYPE_NAME_PUB_CLASS));</span>
+        } else {
+<span class="nc" id="L488">            eventType = ast.newSimpleType(ast.newName(TYPE_NAME_SUB_CLASS));</span>
+        }
+
+<span class="nc" id="L491">        final ParameterizedType type = ast.newParameterizedType(eventType);</span>
+
+<span class="nc bnc" id="L493" title="All 2 branches missed.">        if (pubMsg != null) {</span>
+<span class="nc" id="L494">            type.typeArguments().add(ast.newSimpleType(ast.newName(messageTypeName(pubMsg, context))));</span>
+        }
+<span class="nc bnc" id="L496" title="All 2 branches missed.">        if (subMsg != null) {</span>
+<span class="nc" id="L497">            type.typeArguments().add(ast.newSimpleType(ast.newName(messageTypeName(subMsg, context))));</span>
+        }
+
+<span class="nc" id="L500">        return type;</span>
+    }
 
     private static MemberValuePair newKeyValueClass(final AST ast, final String key, final String typeName) {
 
-<span class="nc" id="L205">        final MemberValuePair pair = ast.newMemberValuePair();</span>
+<span class="nc" id="L505">        final MemberValuePair pair = ast.newMemberValuePair();</span>
 
-<span class="nc" id="L207">        pair.setName(ast.newSimpleName(key));</span>
+<span class="nc" id="L507">        pair.setName(ast.newSimpleName(key));</span>
 
-<span class="nc" id="L209">        final TypeLiteral type = ast.newTypeLiteral();</span>
-<span class="nc" id="L210">        type.setType(ast.newSimpleType(ast.newName(typeName)));</span>
+<span class="nc" id="L509">        final TypeLiteral type = ast.newTypeLiteral();</span>
+<span class="nc" id="L510">        type.setType(ast.newSimpleType(ast.newName(typeName)));</span>
 
-<span class="nc" id="L212">        pair.setValue(type);</span>
+<span class="nc" id="L512">        pair.setValue(type);</span>
 
-<span class="nc" id="L214">        return pair;</span>
+<span class="nc" id="L514">        return pair;</span>
     }
 
     private static MemberValuePair newKeyValueString(final AST ast, final String key, final String value) {
 
-<span class="nc" id="L219">        final MemberValuePair pair = ast.newMemberValuePair();</span>
+<span class="nc" id="L519">        final MemberValuePair pair = ast.newMemberValuePair();</span>
 
-<span class="nc" id="L221">        pair.setName(ast.newSimpleName(key));</span>
+<span class="nc" id="L521">        pair.setName(ast.newSimpleName(key));</span>
 
-<span class="nc" id="L223">        final StringLiteral topicLiteral = ast.newStringLiteral();</span>
-<span class="nc" id="L224">        topicLiteral.setLiteralValue(value);</span>
+<span class="nc" id="L523">        final StringLiteral topicLiteral = ast.newStringLiteral();</span>
+<span class="nc" id="L524">        topicLiteral.setLiteralValue(value);</span>
 
-<span class="nc" id="L226">        pair.setValue(topicLiteral);</span>
+<span class="nc" id="L526">        pair.setValue(topicLiteral);</span>
 
-<span class="nc" id="L228">        return pair;</span>
+<span class="nc" id="L528">        return pair;</span>
     }
 
-    private String messageTypeName(final MessageReference message) {
-<span class="nc" id="L232">        return packageName(&quot;messages&quot;) + &quot;.&quot; + PackageTypeBuilder.asTypeName(message.getName());</span>
+    public static String messageTypeName(final MessageReference message, final Context context) {
+<span class="nc" id="L532">        return context.fullQualifiedName(&quot;messages&quot;) + &quot;.&quot; + PackageTypeBuilder.asTypeName(message.getName());</span>
     }
 
-    private String makeTopicMethodName(final TopicInformation ti) {
+    public static String makeTopicMethodName(final TopicInformation ti) {
 
-<span class="nc" id="L237">        Stream&lt;String&gt; s = Stream.of(ti.getType());</span>
+<span class="nc" id="L537">        Stream&lt;String&gt; s = Stream.of(ti.getType());</span>
 
-<span class="nc" id="L239">        s = Stream.concat(s, ti.getResources().stream());</span>
-<span class="nc" id="L240">        s = Stream.concat(s, Stream.of(ti.getAction()));</span>
+<span class="nc" id="L539">        s = Stream.concat(s, ti.getResources().stream());</span>
+<span class="nc" id="L540">        s = Stream.concat(s, Stream.of(ti.getAction()));</span>
 
-<span class="nc bnc" id="L242" title="All 2 branches missed.">        if (ti.getStatus().isPresent()) {</span>
-<span class="nc" id="L243">            s = Stream.concat(s, Stream.of(ti.getStatus().get().toString().toLowerCase()));</span>
+<span class="nc bnc" id="L542" title="All 2 branches missed.">        if (ti.getStatus().isPresent()) {</span>
+<span class="nc" id="L543">            s = Stream.concat(s, Stream.of(ti.getStatus().get().toString().toLowerCase()));</span>
         }
 
-<span class="nc" id="L246">        return joinLowerCamelCase(s);</span>
+<span class="nc" id="L546">        return joinLowerCamelCase(s);</span>
     }
 
     private static String joinLowerCamelCase(final Stream&lt;String&gt; s) {
 
-<span class="nc" id="L251">        boolean first = true;</span>
+<span class="nc" id="L551">        boolean first = true;</span>
 
-<span class="nc" id="L253">        final StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L553">        final StringBuilder sb = new StringBuilder();</span>
 
-<span class="nc bnc" id="L255" title="All 2 branches missed.">        for (final String tok : (Iterable&lt;String&gt;) s::iterator) {</span>
-<span class="nc" id="L256">            final int len = tok.length();</span>
+<span class="nc bnc" id="L555" title="All 2 branches missed.">        for (final String tok : (Iterable&lt;String&gt;) s::iterator) {</span>
+<span class="nc" id="L556">            final int len = tok.length();</span>
 
-<span class="nc bnc" id="L258" title="All 2 branches missed.">            if (len == 0) {</span>
-<span class="nc" id="L259">                continue;</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">            if (len == 0) {</span>
+<span class="nc" id="L559">                continue;</span>
             }
 
-<span class="nc bnc" id="L262" title="All 2 branches missed.">            final Function&lt;Character, Character&gt; fn = first ? Character::toLowerCase : Character::toUpperCase;</span>
-<span class="nc" id="L263">            first = false;</span>
+<span class="nc bnc" id="L562" title="All 2 branches missed.">            final Function&lt;Character, Character&gt; fn = first ? Character::toLowerCase : Character::toUpperCase;</span>
+<span class="nc" id="L563">            first = false;</span>
 
-<span class="nc" id="L265">            sb.append(fn.apply(tok.charAt(0)));</span>
-<span class="nc" id="L266">            sb.append(tok.substring(1).toLowerCase());</span>
-<span class="nc" id="L267">        }</span>
+<span class="nc" id="L565">            sb.append(fn.apply(tok.charAt(0)));</span>
+<span class="nc" id="L566">            sb.append(tok.substring(1).toLowerCase());</span>
+<span class="nc" id="L567">        }</span>
 
-<span class="nc" id="L269">        return sb.toString();</span>
+<span class="nc" id="L569">        return sb.toString();</span>
     }
-
-    private static String makeVersion(final String version) {
-<span class="nc" id="L273">        return &quot;v&quot; + version.replace(&quot;.&quot;, &quot;_&quot;);</span>
-    }
-
-    private static void addTopic(final Map&lt;String, Map&lt;String, List&lt;Topic&gt;&gt;&gt; versions, final TopicInformation ti, final Topic topic) {
-
-<span class="nc" id="L278">        Map&lt;String, List&lt;Topic&gt;&gt; version = versions.get(ti.getVersion());</span>
-<span class="nc bnc" id="L279" title="All 2 branches missed.">        if (version == null) {</span>
-<span class="nc" id="L280">            version = new HashMap&lt;&gt;();</span>
-<span class="nc" id="L281">            versions.put(ti.getVersion(), version);</span>
-        }
-
-<span class="nc" id="L284">        List&lt;Topic&gt; service = version.get(ti.getService());</span>
-<span class="nc bnc" id="L285" title="All 2 branches missed.">        if (service == null) {</span>
-<span class="nc" id="L286">            service = new LinkedList&lt;&gt;();</span>
-<span class="nc" id="L287">            version.put(ti.getService(), service);</span>
-        }
-
-<span class="nc" id="L290">        service.add(topic);</span>
-<span class="nc" id="L291">    }</span>
 
     private void generateMessages() {
-<span class="nc" id="L294">        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName(&quot;messages&quot;), StandardCharsets.UTF_8, this::lookupType);</span>
+<span class="nc" id="L573">        final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName(&quot;messages&quot;), this.options.getCharacterSet(), this::resolveTypeName,</span>
+                this::lookupType);
 
-<span class="nc" id="L296">        this.api.getMessages().forEach(message -&gt; {</span>
-<span class="nc" id="L297">            generateMessage(builder, message);</span>
-<span class="nc" id="L298">        });</span>
-<span class="nc" id="L299">    }</span>
+<span class="nc" id="L576">        this.api.getMessages().forEach(message -&gt; {</span>
+<span class="nc" id="L577">            generateMessage(builder, message);</span>
+<span class="nc" id="L578">        });</span>
+<span class="nc" id="L579">    }</span>
 
     private Type lookupType(final String typeName) {
-<span class="nc" id="L302">        return this.api.getTypes().stream().filter(type -&gt; type.getName().equals(typeName)).findFirst()</span>
-<span class="nc" id="L303">                .orElseThrow(() -&gt; new IllegalStateException(String.format(&quot;Unknown type '%s' referenced&quot;, typeName)));</span>
+<span class="nc" id="L582">        return this.api.getTypes().stream().filter(type -&gt; type.getName().equals(typeName)).findFirst()</span>
+<span class="nc" id="L583">                .orElseThrow(() -&gt; new IllegalStateException(String.format(&quot;Unknown type '%s' referenced&quot;, typeName)));</span>
     }
 
     private void generateMessage(final TypeBuilder builder, final Message message) {
 
-<span class="nc" id="L308">        final TypeInformation ti = new TypeInformation(PackageTypeBuilder.asTypeName(message.getName()), message.getSummary(), message.getDescription());</span>
+<span class="nc" id="L588">        final TypeInformation ti = new TypeInformation(asTypeName(message.getName()), message.getSummary(), message.getDescription());</span>
 
-<span class="nc" id="L310">        final String payloadTypeName = PackageTypeBuilder.asTypeName(message.getPayload().getName());</span>
+        //         final String payloadTypeName = PackageTypeBuilder.asTypeName(message.getPayload().getName());
 
-<span class="nc" id="L312">        builder.createType(ti, false, b -&gt; {</span>
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L593">        final Consumer&lt;TypeDeclaration&gt; typeCustomizer = td -&gt; {</span>
+<span class="nc" id="L594">            final AST ast = td.getAST();</span>
 
-<span class="nc bnc" id="L314" title="All 2 branches missed.">            if (message.getPayload() instanceof ObjectType) {</span>
+<span class="nc" id="L596">            final ParameterizedType type = ast.newParameterizedType(ast.newSimpleType(ast.newName(TYPE_NAME_MESSAGE_INTERFACE)));</span>
+<span class="nc" id="L597">            type.typeArguments().add(ast.newSimpleType(ast.newName(ti.getName() + &quot;.Payload&quot;)));</span>
 
-<span class="nc" id="L316">                generateType(b, (Type) message.getPayload());</span>
+<span class="nc" id="L599">            td.superInterfaceTypes().add(type);</span>
+<span class="nc" id="L600">        };</span>
 
-<span class="nc" id="L318">                b.createProperty(new PropertyInformation(&quot;Payload&quot;, &quot;payload&quot;, &quot;Message payload&quot;, null));</span>
+<span class="nc" id="L602">        final TypeReference payloadType = message.getPayload();</span>
 
-<span class="nc bnc" id="L320" title="All 2 branches missed.">            } else if (message.getPayload() instanceof CoreType) {</span>
+<span class="nc" id="L604">        builder.createType(ti, typeCustomizer, b -&gt; {</span>
 
-<span class="nc" id="L322">                final String typeName = ((CoreType) message.getPayload()).getJavaType().getName();</span>
-<span class="nc" id="L323">                b.createProperty(new PropertyInformation(typeName, &quot;payload&quot;, &quot;Message payload&quot;, null));</span>
+<span class="nc bnc" id="L606" title="All 2 branches missed.">            if (payloadType instanceof ObjectType) {</span>
 
-<span class="nc bnc" id="L325" title="All 2 branches missed.">            } else if (message.getPayload().getClass().equals(TypeReference.class)) {</span>
-<span class="nc" id="L326">                b.createProperty(new PropertyInformation(packageName(&quot;types.&quot; + payloadTypeName), &quot;payload&quot;, &quot;Message payload&quot;, null));</span>
+<span class="nc" id="L608">                generateType(b, (Type) payloadType);</span>
+
+<span class="nc" id="L610">                b.createProperty(new PropertyInformation((Type) payloadType, &quot;payload&quot;, &quot;Message payload&quot;, null));</span>
+
+<span class="nc bnc" id="L612" title="All 2 branches missed.">            } else if (payloadType instanceof CoreType) {</span>
+
+<span class="nc" id="L614">                b.createProperty(new PropertyInformation((CoreType) message.getPayload(), &quot;payload&quot;, &quot;Message payload&quot;, null));</span>
+
+<span class="nc bnc" id="L616" title="All 2 branches missed.">            } else if (payloadType.getClass().equals(TypeReference.class)) {</span>
+<span class="nc" id="L617">                b.createProperty(new PropertyInformation(lookupType(payloadType), &quot;payload&quot;, &quot;Message payload&quot;, null));</span>
             } else {
-<span class="nc" id="L328">                throw new IllegalStateException(&quot;Unsupported payload type: &quot; + message.getPayload().getClass().getName());</span>
+<span class="nc" id="L619">                throw new IllegalStateException(&quot;Unsupported payload type: &quot; + message.getPayload().getClass().getName());</span>
             }
 
-<span class="nc" id="L331">        });</span>
-<span class="nc" id="L332">    }</span>
+<span class="nc" id="L622">        });</span>
+<span class="nc" id="L623">    }</span>
 
     private void generateTypes() {
 
-<span class="nc" id="L336">        final TypeBuilder builder = new PackageTypeBuilder(this.target, packageName(&quot;types&quot;), StandardCharsets.UTF_8, typeName -&gt; {</span>
-<span class="nc" id="L337">            return this.api.getTypes().stream().filter(type -&gt; type.getName().equals(typeName)).findFirst()</span>
-<span class="nc" id="L338">                    .orElseThrow(() -&gt; new IllegalStateException(String.format(&quot;Unknown type '%s' referenced&quot;, typeName)));</span>
-        });
+<span class="nc" id="L627">        final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName(&quot;types&quot;), this.options.getCharacterSet(), this::resolveTypeName,</span>
+                this::lookupType);
 
-<span class="nc" id="L341">        this.api.getTypes().forEach(type -&gt; {</span>
-<span class="nc" id="L342">            generateType(builder, type);</span>
-<span class="nc" id="L343">        });</span>
-<span class="nc" id="L344">    }</span>
+<span class="nc" id="L630">        this.api.getTypes().forEach(type -&gt; {</span>
+<span class="nc" id="L631">            generateType(builder, type);</span>
+<span class="nc" id="L632">        });</span>
+<span class="nc" id="L633">    }</span>
 
     private void generateType(final TypeBuilder builder, final Type type) {
-<span class="nc bnc" id="L347" title="All 2 branches missed.">        if (type instanceof EnumType) {</span>
-<span class="nc" id="L348">            generateEnum((EnumType) type, builder);</span>
-<span class="nc bnc" id="L349" title="All 2 branches missed.">        } else if (type instanceof ObjectType) {</span>
-<span class="nc" id="L350">            generateObject((ObjectType) type, builder);</span>
+<span class="nc bnc" id="L636" title="All 2 branches missed.">        if (type instanceof EnumType) {</span>
+<span class="nc" id="L637">            generateEnum((EnumType) type, builder);</span>
+<span class="nc bnc" id="L638" title="All 2 branches missed.">        } else if (type instanceof ObjectType) {</span>
+<span class="nc" id="L639">            generateObject((ObjectType) type, builder);</span>
         }
-<span class="nc" id="L352">    }</span>
+<span class="nc" id="L641">    }</span>
 
     private void generateObject(final ObjectType type, final TypeBuilder builder) {
 
-<span class="nc" id="L356">        final TypeInformation ti = new TypeInformation(PackageTypeBuilder.asTypeName(type.getName()), type.getTitle(), type.getDescription());</span>
+<span class="nc" id="L645">        final TypeInformation ti = new TypeInformation(asTypeName(type.getName()), type.getTitle(), type.getDescription());</span>
 
-<span class="nc" id="L358">        builder.createType(ti, false, b -&gt; {</span>
+<span class="nc" id="L647">        builder.createType(ti, false, true, b -&gt; {</span>
 
-<span class="nc bnc" id="L360" title="All 2 branches missed.">            for (final Property property : type.getProperties()) {</span>
-<span class="nc" id="L361">                generateProperty(property, b);</span>
-<span class="nc" id="L362">            }</span>
-<span class="nc" id="L363">        });</span>
+<span class="nc bnc" id="L649" title="All 2 branches missed.">            for (final Property property : type.getProperties()) {</span>
+<span class="nc" id="L650">                generateProperty(property, b);</span>
+<span class="nc" id="L651">            }</span>
+<span class="nc" id="L652">        });</span>
 
-<span class="nc" id="L365">    }</span>
+<span class="nc" id="L654">    }</span>
 
-    private void generateProperty(final Property property, final TypeBuilder builder) {
-        final Type type;
+    private static String toPrimitives(final CoreType type) {
+<span class="nc" id="L657">        final String typeName = type.getJavaType().getName();</span>
 
-        String typeName;
+<span class="nc bnc" id="L659" title="All 34 branches missed.">        switch (typeName) {</span>
+        case &quot;java.lang.Boolean&quot;:
+<span class="nc" id="L661">            return &quot;boolean&quot;;</span>
+        case &quot;java.lang.Integer&quot;:
+<span class="nc" id="L663">            return &quot;int&quot;;</span>
+        case &quot;java.lang.Long&quot;:
+<span class="nc" id="L665">            return &quot;long&quot;;</span>
+        case &quot;java.lang.Float&quot;:
+<span class="nc" id="L667">            return &quot;float&quot;;</span>
+        case &quot;java.lang.Short&quot;:
+<span class="nc" id="L669">            return &quot;short&quot;;</span>
+        case &quot;java.lang.Byte&quot;:
+<span class="nc" id="L671">            return &quot;byte&quot;;</span>
+        case &quot;java.lang.Character&quot;:
+<span class="nc" id="L673">            return &quot;char&quot;;</span>
+        case &quot;java.lang.Double&quot;:
+<span class="nc" id="L675">            return &quot;double&quot;;</span>
+        default:
+<span class="nc" id="L677">            return typeName;</span>
+        }
 
-<span class="nc bnc" id="L372" title="All 2 branches missed.">        if (property.getType() instanceof Type) {</span>
-<span class="nc" id="L373">            type = (Type) property.getType();</span>
-<span class="nc" id="L374">            generateType(builder, (Type) property.getType());</span>
+    }
 
-<span class="nc bnc" id="L376" title="All 2 branches missed.">            if (property.getType() instanceof CoreType) {</span>
-<span class="nc" id="L377">                typeName = ((CoreType) type).getJavaType().getName();</span>
+    private String resolveTypeName(final Type type) {
+<span class="nc" id="L683">        return resolveTypeName(type, false);</span>
+    }
+
+    private String resolveTypeName(final TypeReference typeRef, final boolean allowPrimitives) {
+<span class="nc bnc" id="L687" title="All 4 branches missed.">        if (typeRef instanceof ObjectType || typeRef instanceof EnumType) {</span>
+
+<span class="nc" id="L689">            return resolveParentableTypeName(typeRef);</span>
+
+<span class="nc bnc" id="L691" title="All 2 branches missed.">        } else if (typeRef instanceof CoreType) {</span>
+
+<span class="nc bnc" id="L693" title="All 2 branches missed.">            if (allowPrimitives) {</span>
+<span class="nc" id="L694">                return toPrimitives((CoreType) typeRef);</span>
             } else {
-<span class="nc" id="L379">                typeName = PackageTypeBuilder.asTypeName(type.getName());</span>
+<span class="nc" id="L696">                return ((CoreType) typeRef).getJavaType().getName();</span>
             }
 
+<span class="nc bnc" id="L699" title="All 2 branches missed.">        } else if (typeRef instanceof ArrayType) {</span>
+
+<span class="nc" id="L701">            return resolveTypeName(((ArrayType) typeRef).getItemType(), false);</span>
+
         } else {
-<span class="nc" id="L383">            type = lookupType(property.getType().getName());</span>
-<span class="nc" id="L384">            typeName = packageName(&quot;types.&quot; + PackageTypeBuilder.asTypeName(type.getName()));</span>
+
+<span class="nc" id="L705">            return resolveTypeName(lookupType(typeRef.getName()), allowPrimitives);</span>
+
+        }
+    }
+
+    private String resolveParentableTypeName(final TypeReference typeRef) {
+<span class="nc" id="L711">        final List&lt;String&gt; full = new LinkedList&lt;&gt;();</span>
+
+<span class="nc" id="L713">        full.add(typeRef.getNamespace());</span>
+
+<span class="nc bnc" id="L715" title="All 2 branches missed.">        if (typeRef instanceof ParentableType) {</span>
+<span class="nc bnc" id="L716" title="All 2 branches missed.">            for (final String parent : ((ParentableType) typeRef).getParents()) {</span>
+<span class="nc" id="L717">                full.add(asTypeName(parent));</span>
+<span class="nc" id="L718">            }</span>
         }
 
-        // need to check resolved type
+<span class="nc" id="L721">        full.add(asTypeName(typeRef.getName()));</span>
 
-<span class="nc bnc" id="L389" title="All 2 branches missed.">        if (type instanceof CoreType) {</span>
-<span class="nc" id="L390">            typeName = ((CoreType) type).getJavaType().getName();</span>
+<span class="nc" id="L723">        return packageName(String.join(&quot;.&quot;, full));</span>
+    }
+
+    private Type lookupType(final TypeReference typeRef) {
+<span class="nc bnc" id="L727" title="All 2 branches missed.">        if (typeRef instanceof Type) {</span>
+<span class="nc" id="L728">            return (Type) typeRef;</span>
         }
 
-<span class="nc" id="L393">        final String name = PackageTypeBuilder.asPropertyName(property.getName());</span>
+<span class="nc" id="L731">        return lookupType(typeRef.getName());</span>
+    }
 
-<span class="nc" id="L395">        String summary = property.getDescription();</span>
-<span class="nc" id="L396">        String description = null;</span>
-<span class="nc bnc" id="L397" title="All 2 branches missed.">        if (summary == null) {</span>
-<span class="nc" id="L398">            summary = type.getTitle();</span>
-<span class="nc" id="L399">            description = type.getDescription();</span>
+    private void generateProperty(final Property property, final TypeBuilder builder) {
+
+        // build local type
+
+<span class="nc" id="L738">        final TypeReference type = property.getType();</span>
+<span class="nc bnc" id="L739" title="All 2 branches missed.">        if (type instanceof Type) {</span>
+<span class="nc" id="L740">            generateType(builder, (Type) type);</span>
         }
 
-<span class="nc" id="L402">        final PropertyInformation p = new PropertyInformation(typeName, name, summary, description);</span>
+        // generate property
 
-<span class="nc" id="L404">        builder.createProperty(p);</span>
-<span class="nc" id="L405">    }</span>
+<span class="nc" id="L745">        final String name = PackageTypeBuilder.asPropertyName(property.getName());</span>
+
+<span class="nc" id="L747">        final String summary = property.getDescription(); // FIXME: chase description</span>
+<span class="nc" id="L748">        final String description = null; // FIXME: chase description</span>
+
+<span class="nc" id="L750">        builder.createProperty(new PropertyInformation(lookupType(type), name, summary, description));</span>
+<span class="nc" id="L751">    }</span>
 
     private void generateEnum(final EnumType type, final TypeBuilder builder) {
-<span class="nc" id="L408">        builder.createEnum(new TypeInformation(PackageTypeBuilder.asTypeName(type.getName()), type.getTitle(), type.getDescription()), type.getLiterals());</span>
-<span class="nc" id="L409">    }</span>
+<span class="nc" id="L754">        builder.createEnum(new TypeInformation(asTypeName(type.getName()), type.getTitle(), type.getDescription()), type.getLiterals(),</span>
+<span class="nc" id="L755">                (literal, decl) -&gt; fireExtensions(extension -&gt; extension.createdEnumLiteral(literal, decl)), true);</span>
+<span class="nc" id="L756">    }</span>
 
-    private String packageName(final String local) {
-<span class="nc" id="L412">        String base = this.basePackage;</span>
-<span class="nc bnc" id="L413" title="All 4 branches missed.">        if (base == null || base.isEmpty()) {</span>
-<span class="nc" id="L414">            base = this.api.getBaseTopic();</span>
-        }
-<span class="nc bnc" id="L416" title="All 4 branches missed.">        if (local == null || local.isEmpty()) {</span>
-<span class="nc" id="L417">            return base;</span>
+    protected &lt;T&gt; void fireExtensions(final Consumer&lt;GeneratorExtension&gt; consumer) {
+<span class="nc bnc" id="L759" title="All 2 branches missed.">        for (final GeneratorExtension extension : this.extensions) {</span>
+<span class="nc" id="L760">            consumer.accept(extension);</span>
+<span class="nc" id="L761">        }</span>
+<span class="nc" id="L762">    }</span>
+
+    protected &lt;T&gt; void fireExtensions(final T literal, final BiConsumer&lt;GeneratorExtension, T&gt; consumer) {
+<span class="nc bnc" id="L765" title="All 2 branches missed.">        for (final GeneratorExtension extension : this.extensions) {</span>
+<span class="nc" id="L766">            consumer.accept(extension, literal);</span>
+<span class="nc" id="L767">        }</span>
+<span class="nc" id="L768">    }</span>
+
+    private String packageName(final String... local) {
+
+        Stream&lt;String&gt; full;
+
+<span class="nc bnc" id="L774" title="All 4 branches missed.">        if (this.options.getBasePackage() != null &amp;&amp; !this.options.getBasePackage().isEmpty()) {</span>
+<span class="nc" id="L775">            full = Stream.of(this.options.getBasePackage());</span>
+<span class="nc bnc" id="L776" title="All 4 branches missed.">        } else if (this.api.getBaseTopic() != null &amp;&amp; !this.api.getBaseTopic().isEmpty()) {</span>
+<span class="nc" id="L777">            full = Stream.of(this.api.getBaseTopic());</span>
         } else {
-<span class="nc" id="L419">            return base + &quot;.&quot; + local;</span>
+<span class="nc" id="L779">            full = Stream.empty();</span>
         }
+
+<span class="nc bnc" id="L782" title="All 2 branches missed.">        if (local != null) {</span>
+<span class="nc" id="L783">            full = Stream.concat(full, Arrays.stream(local));</span>
+        }
+
+<span class="nc" id="L786">        return full.collect(Collectors.joining(&quot;.&quot;));</span>
     }
 
     @SuppressWarnings(&quot;unchecked&quot;)
     private void generateRoot() throws IOException {
 
-<span class="nc" id="L426">        PackageTypeBuilder.createCompilationUnit(this.target, packageName(null), &quot;package-info&quot;, this.characterSet, (ast, cu) -&gt; {</span>
-<span class="nc" id="L427">            final Information info = this.api.getInformation();</span>
+<span class="nc" id="L792">        PackageTypeBuilder.createCompilationUnit(this.options.getTargetPath(), packageName(), &quot;package-info&quot;, this.options.getCharacterSet(), (ast, cu) -&gt; {</span>
+<span class="nc" id="L793">            final Information info = this.api.getInformation();</span>
 
-<span class="nc" id="L429">            final Javadoc doc = ast.newJavadoc();</span>
+<span class="nc" id="L795">            final Javadoc doc = ast.newJavadoc();</span>
 
-<span class="nc bnc" id="L431" title="All 2 branches missed.">            if (info.getTitle() != null) {</span>
-<span class="nc" id="L432">                final TagElement tag = ast.newTagElement();</span>
-<span class="nc" id="L433">                tag.fragments().add(PackageTypeBuilder.newText(ast, info.getTitle()));</span>
-<span class="nc" id="L434">                doc.tags().add(tag);</span>
+<span class="nc bnc" id="L797" title="All 2 branches missed.">            if (info.getTitle() != null) {</span>
+<span class="nc" id="L798">                final TagElement tag = ast.newTagElement();</span>
+<span class="nc" id="L799">                tag.fragments().add(JDTHelper.newText(ast, info.getTitle()));</span>
+<span class="nc" id="L800">                doc.tags().add(tag);</span>
             }
 
-<span class="nc bnc" id="L437" title="All 2 branches missed.">            if (info.getVersion() != null) {</span>
-<span class="nc" id="L438">                final TagElement version = ast.newTagElement();</span>
-<span class="nc" id="L439">                version.setTagName(&quot;@version&quot;);</span>
-<span class="nc" id="L440">                version.fragments().add(PackageTypeBuilder.newText(ast, info.getVersion()));</span>
-<span class="nc" id="L441">                doc.tags().add(version);</span>
+<span class="nc bnc" id="L803" title="All 2 branches missed.">            if (info.getVersion() != null) {</span>
+<span class="nc" id="L804">                final TagElement version = ast.newTagElement();</span>
+<span class="nc" id="L805">                version.setTagName(&quot;@version&quot;);</span>
+<span class="nc" id="L806">                version.fragments().add(JDTHelper.newText(ast, info.getVersion()));</span>
+<span class="nc" id="L807">                doc.tags().add(version);</span>
             }
 
-<span class="nc" id="L444">            cu.getPackage().setJavadoc(doc);</span>
+<span class="nc" id="L810">            cu.getPackage().setJavadoc(doc);</span>
 
-<span class="nc" id="L446">        });</span>
-<span class="nc" id="L447">    }</span>
+<span class="nc" id="L812">        });</span>
+<span class="nc" id="L813">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>
