@@ -24,6 +24,8 @@ public class Message extends MessageReference {
     private String description;
     private TypeReference payload;
 
+    private boolean deprecated;
+
     public Message(final String name) {
         super(name);
     }
@@ -52,10 +54,22 @@ public class Message extends MessageReference {
         this.payload = payload;
     }
 
+    public boolean isDeprecated() {
+        return this.deprecated;
+    }
+
+    public void setDeprecated(final boolean deprecated) {
+        this.deprecated = deprecated;
+    }
+
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE).append("name", getName())
-                .append("summary", this.summary).append("description", this.description).append("payload", this.payload)
+        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
+                .append("name", getName())
+                .append("summary", this.summary)
+                .append("description", this.description)
+                .append("payload", this.payload)
+                .append("deprecated", this.deprecated)
                 .toString();
     }
 }

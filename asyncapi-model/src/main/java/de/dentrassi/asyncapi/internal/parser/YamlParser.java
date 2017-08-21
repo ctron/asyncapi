@@ -17,6 +17,7 @@
 package de.dentrassi.asyncapi.internal.parser;
 
 import static de.dentrassi.asyncapi.AsyncApi.VERSION;
+import static de.dentrassi.asyncapi.internal.parser.Consume.asBoolean;
 import static de.dentrassi.asyncapi.internal.parser.Consume.asMap;
 import static de.dentrassi.asyncapi.internal.parser.Consume.asOptionalMap;
 import static de.dentrassi.asyncapi.internal.parser.Consume.asOptionalSet;
@@ -92,7 +93,7 @@ public class YamlParser {
         final AsyncApi api = new AsyncApi();
 
         api.setBaseTopic(asOptionalString("baseTopic", this.document).orElse(null));
-        api.setHost(asString("host", this.document));
+        api.setHost(asOptionalString("host", this.document).orElse("localhost"));
         api.setSchemes(asSet("schemes", this.document));
         api.setInformation(parseInfo(asMap("info", this.document)));
         api.setTopics(parseTopics(asMap("topics", this.document)));
@@ -301,6 +302,7 @@ public class YamlParser {
         result.setName(key);
         result.setPublish(asOptionalMap("publish", map).map(v -> parseMessage("Publish. " + key, v)).orElse(null));
         result.setSubscribe(asOptionalMap("subscribe", map).map(v -> parseMessage("Subscribe." + key, v)).orElse(null));
+        result.setDeprecated(asBoolean(map, "deprecated"));
 
         return result;
     }
@@ -329,7 +331,10 @@ public class YamlParser {
 
         message.setPayload(parseType("messages", Collections.singletonList(name), "payload", asMap("payload", map)));
 
+        message.setDeprecated(asBoolean(map, "deprecated"));
+
         this.messages.put(name, message);
+
         return message;
     }
 

@@ -26,6 +26,8 @@ public class Topic {
     private MessageReference publish;
     private MessageReference subscribe;
 
+    private boolean deprecated;
+
     public String getName() {
         return this.name;
     }
@@ -48,6 +50,14 @@ public class Topic {
 
     public void setSubscribe(final MessageReference subscribe) {
         this.subscribe = subscribe;
+    }
+
+    public boolean isDeprecated() {
+        return this.deprecated;
+    }
+
+    public void setDeprecated(final boolean deprecated) {
+        this.deprecated = deprecated;
     }
 
     @Override
