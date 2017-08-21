@@ -6,7 +6,7 @@
 
     <groupId>de.dentrassi.asyncapi</groupId>
     <artifactId>asyncapi-parent</artifactId>
-    <version>0.0.4-SNAPSHOT</version>
+    <version>0.0.4</version>
     <packaging>pom</packaging>
 
     <name>AsyncAPI Tools</name>
@@ -31,7 +31,7 @@
         <connection>scm:git:git://github.com/ctron/asyncapi.git</connection>
         <url>https://github.com/ctron/asyncapi</url>
         <developerConnection>scm:git:git@github.com:ctron/asyncapi.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>asyncapi-parent-0.0.4</tag>
     </scm>
 
     <distributionManagement>
