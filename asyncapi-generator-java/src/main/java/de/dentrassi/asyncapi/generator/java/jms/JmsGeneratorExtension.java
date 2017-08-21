@@ -49,7 +49,9 @@ import org.eclipse.jdt.core.dom.TypeLiteral;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
 import de.dentrassi.asyncapi.AsyncApi;
+import de.dentrassi.asyncapi.MessageReference;
 import de.dentrassi.asyncapi.Topic;
+import de.dentrassi.asyncapi.generator.java.ConnectorType;
 import de.dentrassi.asyncapi.generator.java.Generator;
 import de.dentrassi.asyncapi.generator.java.Generator.Context;
 import de.dentrassi.asyncapi.generator.java.Generator.Options;
@@ -60,45 +62,52 @@ import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
 import de.dentrassi.asyncapi.generator.java.util.Java;
 import de.dentrassi.asyncapi.generator.java.util.Names;
 
-public class JmsClientGeneratorExtension implements GeneratorExtension {
+public class JmsGeneratorExtension implements GeneratorExtension {
 
-    private static final String TYPE_NAME_ABSTRACT_JMS_CLIENT = "de.dentrassi.asyncapi.jms.AbstractJmsClient";
+    private static final String TYPE_NAME_ABSTRACT_JMS_CONNECTOR = "de.dentrassi.asyncapi.jms.AbstractJmsConnector";
 
     @Override
     public void generate(final AsyncApi api, final Options options, final Context context) {
-        final TypeBuilder builder = context.createTypeBuilder("jms.client");
+
+        createConnector(context, ConnectorType.CLIENT);
+        createConnector(context, ConnectorType.SERVER);
+
+        createServiceClasses(context, ConnectorType.CLIENT);
+        createServiceClasses(context, ConnectorType.SERVER);
+    }
+
+    private void createConnector(final Context context, final ConnectorType connectorType) {
+        final TypeBuilder builder = context.createTypeBuilder("jms." + connectorType.getPackageName());
 
         final Consumer<TypeDeclaration> typeCustomizer = TypeBuilder //
-                .superClass(TYPE_NAME_ABSTRACT_JMS_CLIENT) //
-                .andThen(TypeBuilder.superInterfaces(Arrays.asList(context.fullQualifiedName("Client"))));
+                .superClass(TYPE_NAME_ABSTRACT_JMS_CONNECTOR) //
+                .andThen(TypeBuilder.superInterfaces(Arrays.asList(context.fullQualifiedName(connectorType.getSimpleTypeName()))));
 
-        builder.createType(new TypeInformation("JmsClient", null, null), typeCustomizer, b -> {
+        builder.createType(new TypeInformation("Jms" + connectorType.getSimpleTypeName(), null, null), typeCustomizer, b -> {
 
-            createBuilderType(b);
+            createBuilderType(b, connectorType);
             createNewBuilderMethod(b);
 
-            createServiceFields(b, context);
-            createConstructor(b, context);
-            createVersions(b, context);
+            createServiceFields(b, context, connectorType);
+            createConstructor(b, context, connectorType);
+            createVersions(b, context, connectorType);
 
         });
-
-        createServiceClasses(context);
     }
 
     @SuppressWarnings("unchecked")
-    private void createServiceClasses(final Context context) {
+    private void createServiceClasses(final Context context, final ConnectorType connectorType) {
         for (final Map.Entry<String, Map<String, List<Topic>>> entry : context.getServiceDefinitions().getVersions().entrySet()) {
 
             final String version = Names.makeVersion(entry.getKey());
 
             for (final Map.Entry<String, List<Topic>> serviceEntry : entry.getValue().entrySet()) {
                 final String serviceName = Names.toCamelCase(serviceEntry.getKey(), false);
-                final String serviceTypeName = makeServiceType(context, version, serviceEntry, false);
+                final String serviceTypeName = makeServiceType(context, connectorType, version, serviceEntry, false);
 
                 final String implName = Names.toCamelCase(serviceName, true) + "Impl";
 
-                final TypeBuilder builder = context.createTypeBuilder("jms.client." + version);
+                final TypeBuilder builder = context.createTypeBuilder("jms." + connectorType.getPackageName() + "." + version);
 
                 final Consumer<TypeDeclaration> typeCustomizer = TypeBuilder.superInterfaces(Arrays.asList(serviceTypeName)) //
                         .andThen(TypeBuilder.superClass("de.dentrassi.asyncapi.jms.AbstractJmsServiceImpl"));
@@ -118,7 +127,7 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
                             JDTHelper.addSimpleAnnotation(md, "Override");
 
                             md.setName(ast.newSimpleName(name));
-                            md.setReturnType2(Generator.evalEventMethodType(ast, topic, context));
+                            md.setReturnType2(Generator.evalEventMethodType(ast, topic, context, connectorType));
 
                             // body
 
@@ -129,13 +138,18 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
 
                             final ReturnStatement ret = ast.newReturnStatement();
 
-                            if (topic.getPublish() != null && topic.getSubscribe() != null) {
-                                ret.setExpression(aggregate(ast, publisher(ast, topic.getName()),
-                                        subscriber(ast, topic.getName(), Generator.messageTypeName(topic.getSubscribe(), context))));
-                            } else if (topic.getPublish() != null) {
+                            final MessageReference pubMsg = connectorType.getPublish(topic);
+                            final MessageReference subMsg = connectorType.getSubscribe(topic);
+
+                            if (pubMsg != null && subMsg != null) {
+                                ret.setExpression(
+                                        aggregate(ast,
+                                                publisher(ast, topic.getName()),
+                                                subscriber(ast, topic.getName(), Generator.messageTypeName(subMsg, context))));
+                            } else if (pubMsg != null) {
                                 ret.setExpression(publisher(ast, topic.getName()));
-                            } else if (topic.getSubscribe() != null) {
-                                ret.setExpression(subscriber(ast, topic.getName(), Generator.messageTypeName(topic.getSubscribe(), context)));
+                            } else if (subMsg != null) {
+                                ret.setExpression(subscriber(ast, topic.getName(), Generator.messageTypeName(subMsg, context)));
                             }
 
                             body.statements().add(ret);
@@ -244,7 +258,7 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
     }
 
     @SuppressWarnings("unchecked")
-    private void createVersions(final TypeBuilder builder, final Context context) {
+    private void createVersions(final TypeBuilder builder, final Context context, final ConnectorType connectorType) {
 
         for (final Map.Entry<String, Map<String, List<Topic>>> entry : context.getServiceDefinitions().getVersions().entrySet()) {
 
@@ -289,7 +303,7 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
                     final String serviceName = Names.toCamelCase(serviceEntry.getKey(), false);
                     final String serviceInstanceField = version + Names.toCamelCase(serviceName, true);
 
-                    final String serviceTypeName = makeServiceType(context, version, serviceEntry, false);
+                    final String serviceTypeName = makeServiceType(context, connectorType, version, serviceEntry, false);
 
                     final MethodDeclaration smd = ast.newMethodDeclaration();
                     smd.setName(ast.newSimpleName(serviceName));
@@ -309,7 +323,7 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
                     sbody.statements().add(ret2);
 
                     final ThisExpression te = ast.newThisExpression();
-                    te.setQualifier(ast.newSimpleName("JmsClient"));
+                    te.setQualifier(ast.newSimpleName("Jms" + connectorType.getSimpleTypeName()));
 
                     final FieldAccess fa = ast.newFieldAccess();
                     fa.setExpression(te);
@@ -326,16 +340,16 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
     }
 
     @SuppressWarnings("unchecked")
-    private void createBuilderType(final TypeBuilder builder) {
+    private void createBuilderType(final TypeBuilder builder, final ConnectorType connectorType) {
 
         final Consumer<TypeDeclaration> typeCustomizer = //
                 TypeBuilder.make(ModifierKeyword.STATIC_KEYWORD).andThen(td -> {
 
                     final AST ast = td.getAST();
-                    final SimpleType type = ast.newSimpleType(ast.newName(TYPE_NAME_ABSTRACT_JMS_CLIENT + ".Builder"));
+                    final SimpleType type = ast.newSimpleType(ast.newName(TYPE_NAME_ABSTRACT_JMS_CONNECTOR + ".Builder"));
 
                     final ParameterizedType pt = ast.newParameterizedType(type);
-                    pt.typeArguments().add(ast.newSimpleType(ast.newSimpleName("JmsClient")));
+                    pt.typeArguments().add(ast.newSimpleType(ast.newSimpleName("Jms" + connectorType.getSimpleTypeName())));
 
                     td.setSuperclassType(pt);
 
@@ -350,7 +364,7 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
                 JDTHelper.makePublic(md);
 
                 md.setName(ast.newSimpleName("build"));
-                md.setReturnType2(ast.newSimpleType(ast.newName("JmsClient")));
+                md.setReturnType2(ast.newSimpleType(ast.newName("Jms" + connectorType.getSimpleTypeName())));
 
                 final TryStatement ts = ast.newTryStatement();
 
@@ -361,7 +375,7 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
 
                 final ReturnStatement ret = ast.newReturnStatement();
                 final ClassInstanceCreation cir = ast.newClassInstanceCreation();
-                cir.setType(ast.newSimpleType(ast.newName("JmsClient")));
+                cir.setType(ast.newSimpleType(ast.newName("Jms" + connectorType.getSimpleTypeName())));
                 cir.arguments().add(ast.newThisExpression());
 
                 ret.setExpression(cir);
@@ -395,13 +409,13 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
 
         builder.createBodyContent((ast, cu) -> {
             return Java.parseSingleList(ast, ASTParser.K_CLASS_BODY_DECLARATIONS,
-                    "/** Create new client builder */ public static Builder newBuilder() {return new Builder();}",
+                    "/** Create new builder */ public static Builder newBuilder() {return new Builder();}",
                     Java::firstBodyDeclaration);
         });
 
     }
 
-    private void createServiceFields(final TypeBuilder builder, final Context context) {
+    private void createServiceFields(final TypeBuilder builder, final Context context, final ConnectorType connectorType) {
         for (final Map.Entry<String, Map<String, List<Topic>>> entry : context.getServiceDefinitions().getVersions().entrySet()) {
 
             final String version = Names.makeVersion(entry.getKey());
@@ -409,7 +423,7 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
             for (final Map.Entry<String, List<Topic>> serviceEntry : entry.getValue().entrySet()) {
                 final String serviceName = Names.toCamelCase(serviceEntry.getKey(), false);
                 final String serviceInstanceField = version + Names.toCamelCase(serviceName, true);
-                final String serviceTypeName = makeServiceType(context, version, serviceEntry, true);
+                final String serviceTypeName = makeServiceType(context, connectorType, version, serviceEntry, true);
 
                 builder.createBodyContent((ast, cu) -> {
 
@@ -429,12 +443,12 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
     }
 
     @SuppressWarnings("unchecked")
-    private void createConstructor(final TypeBuilder builder, final Context context) {
+    private void createConstructor(final TypeBuilder builder, final Context context, final ConnectorType connectorType) {
         builder.createMethod((ast, cu) -> {
             final MethodDeclaration md = ast.newMethodDeclaration();
 
             md.setConstructor(true);
-            md.setName(ast.newSimpleName("JmsClient"));
+            md.setName(ast.newSimpleName("Jms" + connectorType.getSimpleTypeName()));
             makePrivate(md);
 
             md.parameters().add(JDTHelper.createParameter(ast, "Builder", "builder", ModifierKeyword.FINAL_KEYWORD));
@@ -459,7 +473,7 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
                 for (final Map.Entry<String, List<Topic>> serviceEntry : entry.getValue().entrySet()) {
                     final String serviceName = Names.toCamelCase(serviceEntry.getKey(), false);
                     final String serviceInstanceField = version + Names.toCamelCase(serviceName, true);
-                    final String serviceTypeName = makeServiceType(context, version, serviceEntry, true);
+                    final String serviceTypeName = makeServiceType(context, connectorType, version, serviceEntry, true);
 
                     createServiceInstance(md, serviceInstanceField, serviceTypeName);
 
@@ -472,11 +486,12 @@ public class JmsClientGeneratorExtension implements GeneratorExtension {
         });
     }
 
-    private String makeServiceType(final Context context, final String version, final Map.Entry<String, List<Topic>> serviceEntry, final boolean implementation) {
+    private String makeServiceType(final Context context, final ConnectorType connectorType, final String version, final Map.Entry<String, List<Topic>> serviceEntry,
+            final boolean implementation) {
         if (implementation) {
-            return context.fullQualifiedName("jms.client." + version) + "." + Names.toCamelCase(serviceEntry.getKey() + "Impl", true);
+            return context.fullQualifiedName("jms", connectorType.getPackageName(), version) + "." + Names.toCamelCase(serviceEntry.getKey() + "Impl", true);
         } else {
-            return context.fullQualifiedName(version) + "." + Names.toCamelCase(serviceEntry.getKey(), true);
+            return context.fullQualifiedName(connectorType.getPackageName(), version) + "." + Names.toCamelCase(serviceEntry.getKey(), true);
         }
     }
 

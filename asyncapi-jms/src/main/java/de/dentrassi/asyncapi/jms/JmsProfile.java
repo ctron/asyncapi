@@ -21,5 +21,5 @@ import java.util.function.Function;
 import javax.jms.ConnectionFactory;
 
 public interface JmsProfile {
-    public Function<AbstractJmsClient.Builder<?>, ConnectionFactory> connectionFactory();
+    public Function<AbstractJmsConnector.Builder<?>, ConnectionFactory> connectionFactory();
 }

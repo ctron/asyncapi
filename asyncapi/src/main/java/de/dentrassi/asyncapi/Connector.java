@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi.client;
+package de.dentrassi.asyncapi;
 
-public interface Client {
+public interface Connector {
 
-    public abstract class AbstractBuilder<B extends AbstractBuilder<B, C>, C extends Client> implements Builder<C> {
+    public abstract class AbstractBuilder<B extends AbstractBuilder<B, C>, C extends Connector> implements Builder<C> {
         private String host;
         private String baseTopic;
 
@@ -46,7 +46,7 @@ public interface Client {
         }
     }
 
-    public interface Builder<C extends Client> {
+    public interface Builder<C extends Connector> {
         public C build();
     }
 }

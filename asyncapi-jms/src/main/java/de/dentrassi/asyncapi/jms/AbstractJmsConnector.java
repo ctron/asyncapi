@@ -24,12 +24,12 @@ import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 
-import de.dentrassi.asyncapi.client.Client;
+import de.dentrassi.asyncapi.Connector;
 import de.dentrassi.asyncapi.format.TextPayloadFormat;
 
-public class AbstractJmsClient implements Client, AutoCloseable {
+public class AbstractJmsConnector implements Connector, AutoCloseable {
 
-    public static abstract class Builder<C extends AbstractJmsClient> extends Client.AbstractBuilder<Builder<C>, C> {
+    public static abstract class Builder<C extends AbstractJmsConnector> extends Connector.AbstractBuilder<Builder<C>, C> {
 
         private JmsProfile profile;
         private JmsPayloadFormat payloadFormat = JmsPayloadFormat.objectMessageFormat();
@@ -94,7 +94,7 @@ public class AbstractJmsClient implements Client, AutoCloseable {
     protected final Connection connection;
     protected final ExecutorService executor;
 
-    protected AbstractJmsClient(final AbstractJmsClient.Builder<?> builder) throws JMSException {
+    protected AbstractJmsConnector(final AbstractJmsConnector.Builder<?> builder) throws JMSException {
 
         Objects.requireNonNull(builder.profile(), "JMS profile is not set");
 

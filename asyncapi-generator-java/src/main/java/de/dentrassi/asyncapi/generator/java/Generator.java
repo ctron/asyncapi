@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.eclipse.jdt.core.dom.AST;
@@ -75,6 +76,8 @@ import de.dentrassi.asyncapi.generator.java.ServiceDefinitions.VersionedService;
 import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
 
 public class Generator {
+
+    private static final String TYPE_NAME_CONNECTOR = "de.dentrassi.asyncapi.Connector";
 
     public static final class Options {
         private Path targetPath;
@@ -166,20 +169,22 @@ public class Generator {
     public interface Context {
         public TypeBuilder createTypeBuilder(final String localPackageName);
 
-        public String fullQualifiedName(String localName);
+        public String fullQualifiedName(String... localName);
 
         public ServiceDefinitions getServiceDefinitions();
     }
 
-    private static final String MESSAGE_IFACE_TYPE_NAME = "de.dentrassi.asyncapi.Message";
+    private static final String TYPE_NAME_MESSAGE_INTERFACE = "de.dentrassi.asyncapi.Message";
 
-    private static final String PUBSUB_CLASS_TYPE_NAME = "de.dentrassi.asyncapi.PublishSubscribe";
+    private static final String TYPE_NAME_PUBSUB_CLASS = "de.dentrassi.asyncapi.PublishSubscribe";
 
-    private static final String SUB_CLASS_TYPE_NAME = "de.dentrassi.asyncapi.Subscribe";
+    private static final String TYPE_NAME_SUB_CLASS = "de.dentrassi.asyncapi.Subscribe";
 
-    private static final String PUB_CLASS_TYPE_NAME = "de.dentrassi.asyncapi.Publish";
+    private static final String TYPE_NAME_PUB_CLASS = "de.dentrassi.asyncapi.Publish";
 
-    private static final String TOPIC_ANN_TYPE_NAME = "de.dentrassi.asyncapi.Topic";
+    private static final String TYPE_NAME_TOPIC_ANN = "de.dentrassi.asyncapi.Topic";
+
+    private static final String TYPE_NAME_ABSTRACT_CONNECTOR_BUILDER = "de.dentrassi.asyncapi.Connector.AbstractBuilder";
 
     public static Builder newBuilder() {
         return new Builder();
@@ -198,7 +203,7 @@ public class Generator {
         }
 
         @Override
-        public String fullQualifiedName(final String localName) {
+        public String fullQualifiedName(final String... localName) {
             return packageName(localName);
         }
 
@@ -233,24 +238,26 @@ public class Generator {
     }
 
     private void generateTopics() {
-        renderServices();
-        renderClient();
+        renderServices(ConnectorType.CLIENT);
+        renderServices(ConnectorType.SERVER);
+        renderConnector(ConnectorType.CLIENT);
+        renderConnector(ConnectorType.SERVER);
     }
 
-    private TypeBuilder createTypeBuilder(final String localPackageName) {
+    private TypeBuilder createTypeBuilder(final String... localPackageName) {
         return new PackageTypeBuilder(this.options.getTargetPath(), packageName(localPackageName), this.options.getCharacterSet(), type -> null, this::lookupType);
     }
 
-    private void renderClient() {
+    private void renderConnector(final ConnectorType connectorType) {
 
-        final TypeBuilder builder = createTypeBuilder(null);
+        final TypeBuilder builder = createTypeBuilder();
 
         final Consumer<TypeDeclaration> typeCustomizer = TypeBuilder.asInterface(true) //
-                .andThen(TypeBuilder.superInterfaces(Arrays.asList("de.dentrassi.asyncapi.client.Client")));
+                .andThen(TypeBuilder.superInterfaces(Arrays.asList(TYPE_NAME_CONNECTOR)));
 
-        builder.createType(new TypeInformation("Client", null, null), typeCustomizer, b -> {
+        builder.createType(new TypeInformation(connectorType.getSimpleTypeName(), null, null), typeCustomizer, b -> {
 
-            renderDefaultClientBuilder(b);
+            renderDefaultConnectorBuilder(b, connectorType);
 
             for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : this.serviceDefinitions.getVersions().entrySet()) {
                 final String version = makeVersion(versionEntry.getKey());
@@ -264,7 +271,7 @@ public class Generator {
                         vb.createMethod((ast, cu) -> {
                             final MethodDeclaration md = ast.newMethodDeclaration();
                             md.setName(ast.newSimpleName(PackageTypeBuilder.asPropertyName(serviceType.getName())));
-                            md.setReturnType2(ast.newSimpleType(ast.newName(packageName(version + "." + serviceType.getName()))));
+                            md.setReturnType2(ast.newSimpleType(ast.newName(packageName(connectorType.getPackageName(), version, serviceType.getName()))));
                             return md;
                         });
 
@@ -287,7 +294,7 @@ public class Generator {
 
             for (final Map.Entry<String, VersionedService> latestEntry : this.serviceDefinitions.getLatest().entrySet()) {
                 b.createMethod((ast, cu) -> {
-                    return createReturnLatestVersionService(latestEntry, ast);
+                    return createReturnLatestVersionService(latestEntry, ast, connectorType);
                 });
             }
 
@@ -310,12 +317,12 @@ public class Generator {
     }
 
     @SuppressWarnings("unchecked")
-    private void renderDefaultClientBuilder(final TypeBuilder builder) {
+    private void renderDefaultConnectorBuilder(final TypeBuilder builder, final ConnectorType connectorType) {
 
         Consumer<TypeDeclaration> typeCustomizer = td -> {
             final AST ast = td.getAST();
 
-            final SimpleType st = ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.client.Client.AbstractBuilder"));
+            final SimpleType st = ast.newSimpleType(ast.newName(TYPE_NAME_ABSTRACT_CONNECTOR_BUILDER));
 
             td.setSuperclassType(parametrizeSimple(st, "B", "C"));
         };
@@ -329,7 +336,7 @@ public class Generator {
 
             final TypeParameter c = ast.newTypeParameter();
             c.setName(ast.newSimpleName("C"));
-            c.typeBounds().add(ast.newSimpleType(ast.newSimpleName("Client")));
+            c.typeBounds().add(ast.newSimpleType(ast.newSimpleName(connectorType.getSimpleTypeName())));
 
             td.typeParameters().add(b);
             td.typeParameters().add(c);
@@ -369,9 +376,9 @@ public class Generator {
     }
 
     @SuppressWarnings("unchecked")
-    private MethodDeclaration createReturnLatestVersionService(final Map.Entry<String, VersionedService> latestEntry, final AST ast) {
+    private MethodDeclaration createReturnLatestVersionService(final Map.Entry<String, VersionedService> latestEntry, final AST ast, final ConnectorType connectorType) {
         final String version = makeVersion(latestEntry.getValue().getVersion().toString());
-        final String serviceType = packageName(version + "." + latestEntry.getValue().getType().getName());
+        final String serviceType = packageName(connectorType.getPackageName(), version, latestEntry.getValue().getType().getName());
 
         final MethodDeclaration md = ast.newMethodDeclaration();
 
@@ -399,11 +406,13 @@ public class Generator {
     }
 
     @SuppressWarnings("unchecked")
-    private void renderServices() {
+    private void renderServices(final ConnectorType connectorType) {
         for (final Map.Entry<String, Map<String, List<Topic>>> versionEntry : this.serviceDefinitions.getVersions().entrySet()) {
 
+            final String packageName = connectorType.getPackageName();
             final String version = makeVersion(versionEntry.getKey());
-            final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName(version), this.options.getCharacterSet(), type -> null, this::lookupType);
+            final TypeBuilder builder = new PackageTypeBuilder(this.options.getTargetPath(), packageName(packageName, version), this.options.getCharacterSet(), type -> null,
+                    this::lookupType);
 
             for (final Map.Entry<String, List<Topic>> serviceEntry : versionEntry.getValue().entrySet()) {
                 builder.createType(createServiceTypeInformation(serviceEntry), true, false, b -> {
@@ -422,12 +431,12 @@ public class Generator {
 
                             // set return type
 
-                            md.setReturnType2(evalEventMethodType(ast, topic, this.context));
+                            md.setReturnType2(evalEventMethodType(ast, topic, this.context, connectorType));
 
                             // assign annotation
 
                             final NormalAnnotation an = ast.newNormalAnnotation();
-                            an.setTypeName(ast.newName(TOPIC_ANN_TYPE_NAME));
+                            an.setTypeName(ast.newName(TYPE_NAME_TOPIC_ANN));
                             an.values().add(newKeyValueString(ast, "name", topic.getName()));
                             if (topic.getPublish() != null) {
                                 an.values().add(newKeyValueClass(ast, "publish", messageTypeName(topic.getPublish(), this.context)));
@@ -460,10 +469,10 @@ public class Generator {
     }
 
     @SuppressWarnings("unchecked")
-    public static ParameterizedType evalEventMethodType(final AST ast, final Topic topic, final Context context) {
+    public static ParameterizedType evalEventMethodType(final AST ast, final Topic topic, final Context context, final ConnectorType connectorType) {
 
-        final MessageReference pubMsg = topic.getPublish();
-        final MessageReference subMsg = topic.getSubscribe();
+        final MessageReference pubMsg = connectorType.getPublish(topic);
+        final MessageReference subMsg = connectorType.getSubscribe(topic);
 
         if (pubMsg == null && subMsg == null) {
             return null;
@@ -472,11 +481,11 @@ public class Generator {
         final SimpleType eventType;
 
         if (pubMsg != null && subMsg != null) {
-            eventType = ast.newSimpleType(ast.newName(PUBSUB_CLASS_TYPE_NAME));
+            eventType = ast.newSimpleType(ast.newName(TYPE_NAME_PUBSUB_CLASS));
         } else if (pubMsg != null) {
-            eventType = ast.newSimpleType(ast.newName(PUB_CLASS_TYPE_NAME));
+            eventType = ast.newSimpleType(ast.newName(TYPE_NAME_PUB_CLASS));
         } else {
-            eventType = ast.newSimpleType(ast.newName(SUB_CLASS_TYPE_NAME));
+            eventType = ast.newSimpleType(ast.newName(TYPE_NAME_SUB_CLASS));
         }
 
         final ParameterizedType type = ast.newParameterizedType(eventType);
@@ -584,7 +593,7 @@ public class Generator {
         final Consumer<TypeDeclaration> typeCustomizer = td -> {
             final AST ast = td.getAST();
 
-            final ParameterizedType type = ast.newParameterizedType(ast.newSimpleType(ast.newName(MESSAGE_IFACE_TYPE_NAME)));
+            final ParameterizedType type = ast.newParameterizedType(ast.newSimpleType(ast.newName(TYPE_NAME_MESSAGE_INTERFACE)));
             type.typeArguments().add(ast.newSimpleType(ast.newName(ti.getName() + ".Payload")));
 
             td.superInterfaceTypes().add(type);
@@ -652,6 +661,16 @@ public class Generator {
             return "boolean";
         case "java.lang.Integer":
             return "int";
+        case "java.lang.Long":
+            return "long";
+        case "java.lang.Float":
+            return "float";
+        case "java.lang.Short":
+            return "short";
+        case "java.lang.Byte":
+            return "byte";
+        case "java.lang.Character":
+            return "char";
         case "java.lang.Double":
             return "double";
         default:
@@ -748,22 +767,29 @@ public class Generator {
         }
     }
 
-    private String packageName(final String local) {
-        String base = this.options.getBasePackage();
-        if (base == null || base.isEmpty()) {
-            base = this.api.getBaseTopic();
-        }
-        if (local == null || local.isEmpty()) {
-            return base;
+    private String packageName(final String... local) {
+
+        Stream<String> full;
+
+        if (this.options.getBasePackage() != null && !this.options.getBasePackage().isEmpty()) {
+            full = Stream.of(this.options.getBasePackage());
+        } else if (this.api.getBaseTopic() != null && !this.api.getBaseTopic().isEmpty()) {
+            full = Stream.of(this.api.getBaseTopic());
         } else {
-            return base + "." + local;
+            full = Stream.empty();
         }
+
+        if (local != null) {
+            full = Stream.concat(full, Arrays.stream(local));
+        }
+
+        return full.collect(Collectors.joining("."));
     }
 
     @SuppressWarnings("unchecked")
     private void generateRoot() throws IOException {
 
-        PackageTypeBuilder.createCompilationUnit(this.options.getTargetPath(), packageName(null), "package-info", this.options.getCharacterSet(), (ast, cu) -> {
+        PackageTypeBuilder.createCompilationUnit(this.options.getTargetPath(), packageName(), "package-info", this.options.getCharacterSet(), (ast, cu) -> {
             final Information info = this.api.getInformation();
 
             final Javadoc doc = ast.newJavadoc();

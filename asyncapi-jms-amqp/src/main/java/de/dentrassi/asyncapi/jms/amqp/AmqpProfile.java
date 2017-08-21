@@ -22,7 +22,7 @@ import javax.jms.ConnectionFactory;
 
 import org.apache.qpid.jms.JmsConnectionFactory;
 
-import de.dentrassi.asyncapi.jms.AbstractJmsClient;
+import de.dentrassi.asyncapi.jms.AbstractJmsConnector;
 import de.dentrassi.asyncapi.jms.JmsProfile;
 
 public class AmqpProfile implements JmsProfile {
@@ -58,7 +58,7 @@ public class AmqpProfile implements JmsProfile {
     }
 
     @Override
-    public Function<AbstractJmsClient.Builder<?>, ConnectionFactory> connectionFactory() {
+    public Function<AbstractJmsConnector.Builder<?>, ConnectionFactory> connectionFactory() {
         return builder -> {
 
             final String host = builder.host();
