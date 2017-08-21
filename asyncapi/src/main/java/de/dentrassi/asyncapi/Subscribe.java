@@ -18,6 +18,12 @@ package de.dentrassi.asyncapi;
 
 import java.util.function.Consumer;
 
+/**
+ * Interface for subscribing to messages
+ * 
+ * @param <T>
+ *            The message type
+ */
 public interface Subscribe<T> {
     public ListenerHandle subscribe(Consumer<T> consumer);
 }

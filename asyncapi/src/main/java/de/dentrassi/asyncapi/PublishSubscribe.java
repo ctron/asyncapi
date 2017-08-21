@@ -16,6 +16,14 @@
 
 package de.dentrassi.asyncapi;
 
+/**
+ * Interface for both publishing and subscribing messages
+ *
+ * @param <P>
+ *            The message type for publishing
+ * @param <S>
+ *            The message type for subscribing
+ */
 public interface PublishSubscribe<P, S> extends Publish<P>, Subscribe<S> {
 
 }

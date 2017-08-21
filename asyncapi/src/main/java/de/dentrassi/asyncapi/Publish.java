@@ -18,6 +18,12 @@ package de.dentrassi.asyncapi;
 
 import java.util.concurrent.CompletionStage;
 
+/**
+ * Interface for publishing messages
+ *
+ * @param <T>
+ *            The message type
+ */
 public interface Publish<T> {
     public CompletionStage<?> publish(T message);
 }

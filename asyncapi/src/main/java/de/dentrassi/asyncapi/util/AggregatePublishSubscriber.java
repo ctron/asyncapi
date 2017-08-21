@@ -25,6 +25,14 @@ import de.dentrassi.asyncapi.Publish;
 import de.dentrassi.asyncapi.PublishSubscribe;
 import de.dentrassi.asyncapi.Subscribe;
 
+/**
+ * A helper class to provide an aggregated publish-subscriber
+ *
+ * @param <P>
+ *            The publish message class
+ * @param <S>
+ *            The subscribe message class
+ */
 public class AggregatePublishSubscriber<P, S> implements PublishSubscribe<P, S> {
 
     private final Publish<P> publish;

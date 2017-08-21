@@ -21,6 +21,14 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * The topic metadata from the API model
+ * <p>
+ * <b>Note:</b> While the server interfaces might choose to swap publish and
+ * subscribe for methods, the topic annotation will carry over the information
+ * from the model and <em>not</em> swap the information.
+ * </p>
+ */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface Topic {

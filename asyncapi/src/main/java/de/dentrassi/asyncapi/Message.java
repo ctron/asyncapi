@@ -18,6 +18,15 @@ package de.dentrassi.asyncapi;
 
 import java.io.Serializable;
 
+/**
+ * A message definition
+ * <p>
+ * <b>TODO:</b> This message currently misses the header fields
+ * </p>
+ *
+ * @param <P>
+ *            The message payload
+ */
 public interface Message<P extends Serializable> {
     public void setPayload(P payload);
 

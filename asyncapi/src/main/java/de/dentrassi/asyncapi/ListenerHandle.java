@@ -18,6 +18,20 @@ package de.dentrassi.asyncapi;
 
 import java.util.concurrent.CompletionStage;
 
+/**
+ * A handle to a listener
+ * <p>
+ * This is returned by calls to {@link Subscribe} methods which create a
+ * subscription in order to listen for incoming messages.
+ * </p>
+ * <p>
+ * This listener extends both {@link AutoCloseable} as well as
+ * {@link CompletionStage}. Subscriptions have to be closed when no more
+ * messages should be consumed. This can be achieved by calling
+ * {@link #close()}. Establishing a subscription is performed asynchronously and
+ * the progress can be tracked using the {@link CompletionStage} methods.
+ * </p>
+ */
 public interface ListenerHandle extends AutoCloseable, CompletionStage<Void> {
 
 }
