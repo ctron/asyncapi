@@ -6,3 +6,9 @@ This is a set of tools for working with [AsyncAPI](https://www.asyncapi.com/).
 
 * [Homepage](https://dentrassi.de/asyncapi) 
 * [Maven plugin](https://github.com/ctron/asyncapi-maven)
+    * [Documentation](https://ctron.github.io/asyncapi-asyncapi)
+* [Documentation](https://ctron.github.io/asyncapi)
+
+## Current state
+
+This project is currently under heavy development. Use at your own risk!
