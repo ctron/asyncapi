@@ -21,7 +21,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import com.google.gson.GsonBuilder;
+import org.apache.commons.lang3.builder.RecursiveToStringStyle;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import de.dentrassi.asyncapi.internal.parser.YamlParser;
 
@@ -34,8 +35,8 @@ public class Application {
 
             final AsyncApi api = new YamlParser(in).parse();
 
-            //			System.out.println(ReflectionToStringBuilder.toString(api, RecursiveToStringStyle.MULTI_LINE_STYLE));
-            new GsonBuilder().setPrettyPrinting().create().toJson(api, System.out);
+            System.out.println(ReflectionToStringBuilder.toString(api, RecursiveToStringStyle.MULTI_LINE_STYLE));
+            //             new GsonBuilder().setPrettyPrinting().create().toJson(api, System.out);
         }
 
     }

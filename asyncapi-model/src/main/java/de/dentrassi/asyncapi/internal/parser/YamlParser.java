@@ -26,6 +26,8 @@ import static de.dentrassi.asyncapi.internal.parser.Consume.asString;
 
 import java.io.InputStream;
 import java.io.Reader;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +48,7 @@ import de.dentrassi.asyncapi.AsyncApi;
 import de.dentrassi.asyncapi.CoreType;
 import de.dentrassi.asyncapi.EnumType;
 import de.dentrassi.asyncapi.Information;
+import de.dentrassi.asyncapi.License;
 import de.dentrassi.asyncapi.Message;
 import de.dentrassi.asyncapi.MessageReference;
 import de.dentrassi.asyncapi.ObjectType;
@@ -335,8 +338,35 @@ public class YamlParser {
 
         result.setTitle(asOptionalString("title", map).orElse(null));
         result.setVersion(asString("version", map));
+        result.setDescription(asOptionalString("description", map).orElse(null));
+        result.setTermsOfService(asOptionalString("termsOfService", map)
+                .map(YamlParser::toUri)
+                .orElse(null));
+
+        result.setLicense(asOptionalMap("license", map).map(this::parseLicense).orElse(null));
 
         return result;
+    }
+
+    private License parseLicense(final Map<String, ?> map) {
+
+        final License result = new License();
+
+        result.setName(asString("name", map));
+        result.setUrl(asOptionalString("url", map)
+                .map(YamlParser::toUri)
+                .orElse(null));
+
+        return result;
+
+    }
+
+    private static URI toUri(final String string) {
+        try {
+            return new URI(string);
+        } catch (final URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

@@ -16,11 +16,16 @@
 
 package de.dentrassi.asyncapi;
 
+import java.net.URI;
+
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
 public class Information {
     private String title;
     private String version;
+    private String description;
+    private URI termsOfService;
+    private License license;
 
     public String getTitle() {
         return this.title;
@@ -38,8 +43,38 @@ public class Information {
         this.version = version;
     }
 
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setDescription(final String description) {
+        this.description = description;
+    }
+
+    public URI getTermsOfService() {
+        return this.termsOfService;
+    }
+
+    public void setTermsOfService(final URI termsOfService) {
+        this.termsOfService = termsOfService;
+    }
+
+    public License getLicense() {
+        return this.license;
+    }
+
+    public void setLicense(final License license) {
+        this.license = license;
+    }
+
     @Override
     public String toString() {
-        return new ToStringBuilder(this).append("title", this.title).append("version", this.version).toString();
+        return new ToStringBuilder(this)
+                .append("title", this.title)
+                .append("version", this.version)
+                .append("description", this.description)
+                .append("termsOfService", this.termsOfService)
+                .append("license", this.license)
+                .toString();
     }
 }
