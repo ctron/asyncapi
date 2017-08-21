@@ -19,6 +19,8 @@ package de.dentrassi.asyncapi;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
+import de.dentrassi.asyncapi.type.TypeReference;
+
 public class Message extends MessageReference {
     private String summary;
     private String description;

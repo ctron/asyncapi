@@ -61,12 +61,12 @@ import org.eclipse.jdt.core.formatter.CodeFormatter;
 import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.TextEdit;
 
-import de.dentrassi.asyncapi.ArrayType;
-import de.dentrassi.asyncapi.CoreType;
-import de.dentrassi.asyncapi.Type;
-import de.dentrassi.asyncapi.TypeReference;
 import de.dentrassi.asyncapi.generator.java.util.JDTHelper;
 import de.dentrassi.asyncapi.generator.java.util.Names;
+import de.dentrassi.asyncapi.type.ArrayType;
+import de.dentrassi.asyncapi.type.CoreType;
+import de.dentrassi.asyncapi.type.Type;
+import de.dentrassi.asyncapi.type.TypeReference;
 
 @SuppressWarnings("unchecked")
 public class PackageTypeBuilder implements TypeBuilder {

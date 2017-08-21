@@ -14,33 +14,37 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi;
+package de.dentrassi.asyncapi.meta;
 
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.net.URI;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class ObjectType extends ParentableType {
+public class License {
+    private String name;
+    private URI url;
 
-    private Set<Property> properties = new LinkedHashSet<>();
-
-    public ObjectType(final String namespace, final List<String> parents, final String name) {
-        super(namespace, parents, name);
+    public String getName() {
+        return this.name;
     }
 
-    public Set<Property> getProperties() {
-        return this.properties;
+    public void setName(final String name) {
+        this.name = name;
     }
 
-    public void setProperties(final Set<Property> properties) {
-        this.properties = properties;
+    public URI getUrl() {
+        return this.url;
+    }
+
+    public void setUrl(final URI url) {
+        this.url = url;
     }
 
     @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this, ToStringStyle.MULTI_LINE_STYLE);
+        return new ToStringBuilder(this)
+                .append("name", this.name)
+                .append("url", this.url)
+                .toString();
     }
 }

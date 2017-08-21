@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi;
+package de.dentrassi.asyncapi.type;
 
 public class CoreType extends Type {
 

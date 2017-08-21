@@ -27,6 +27,10 @@ import java.util.Set;
 
 import de.dentrassi.asyncapi.internal.parser.ParserException;
 import de.dentrassi.asyncapi.internal.parser.YamlParser;
+import de.dentrassi.asyncapi.meta.Information;
+import de.dentrassi.asyncapi.type.Type;
+import de.dentrassi.asyncapi.validate.ValidationException;
+import de.dentrassi.asyncapi.validate.Validator;
 
 public class AsyncApi {
 

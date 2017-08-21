@@ -14,51 +14,25 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi;
+package de.dentrassi.asyncapi.type;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 
-public class Property {
+public class TypeReference {
+    private final String namespace;
+    private final String name;
 
-    private String name;
-
-    private TypeReference type;
-
-    private boolean required;
-
-    private String description;
-
-    public String getName() {
-        return this.name;
-    }
-
-    public void setName(final String name) {
+    public TypeReference(final String namespace, final String name) {
+        this.namespace = namespace;
         this.name = name;
     }
 
-    public TypeReference getType() {
-        return this.type;
+    public String getNamespace() {
+        return this.namespace;
     }
 
-    public void setType(final TypeReference type) {
-        this.type = type;
-    }
-
-    public boolean isRequired() {
-        return this.required;
-    }
-
-    public void setRequired(final boolean required) {
-        this.required = required;
-    }
-
-    public String getDescription() {
-        return this.description;
-    }
-
-    public void setDescription(final String description) {
-        this.description = description;
+    public String getName() {
+        return this.name;
     }
 
     @Override
@@ -66,6 +40,7 @@ public class Property {
         final int prime = 31;
         int result = 1;
         result = prime * result + (this.name == null ? 0 : this.name.hashCode());
+        result = prime * result + (this.namespace == null ? 0 : this.namespace.hashCode());
         return result;
     }
 
@@ -77,10 +52,10 @@ public class Property {
         if (obj == null) {
             return false;
         }
-        if (getClass() != obj.getClass()) {
+        if (!(obj instanceof TypeReference)) {
             return false;
         }
-        final Property other = (Property) obj;
+        final TypeReference other = (TypeReference) obj;
         if (this.name == null) {
             if (other.name != null) {
                 return false;
@@ -88,12 +63,18 @@ public class Property {
         } else if (!this.name.equals(other.name)) {
             return false;
         }
+        if (this.namespace == null) {
+            if (other.namespace != null) {
+                return false;
+            }
+        } else if (!this.namespace.equals(other.namespace)) {
+            return false;
+        }
         return true;
     }
 
     @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this, ToStringStyle.MULTI_LINE_STYLE);
+        return ToStringBuilder.reflectionToString(this);
     }
-
 }

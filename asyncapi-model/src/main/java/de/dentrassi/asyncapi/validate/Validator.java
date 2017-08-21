@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi;
+package de.dentrassi.asyncapi.validate;
 
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+
+import de.dentrassi.asyncapi.AsyncApi;
 
 public class Validator {
 

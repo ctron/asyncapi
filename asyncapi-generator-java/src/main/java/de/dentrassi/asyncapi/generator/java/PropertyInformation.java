@@ -16,7 +16,7 @@
 
 package de.dentrassi.asyncapi.generator.java;
 
-import de.dentrassi.asyncapi.Type;
+import de.dentrassi.asyncapi.type.Type;
 
 public class PropertyInformation {
     private final Type type;

@@ -44,19 +44,19 @@ import java.util.Set;
 
 import org.yaml.snakeyaml.Yaml;
 
-import de.dentrassi.asyncapi.ArrayType;
 import de.dentrassi.asyncapi.AsyncApi;
-import de.dentrassi.asyncapi.CoreType;
-import de.dentrassi.asyncapi.EnumType;
-import de.dentrassi.asyncapi.Information;
-import de.dentrassi.asyncapi.License;
 import de.dentrassi.asyncapi.Message;
 import de.dentrassi.asyncapi.MessageReference;
-import de.dentrassi.asyncapi.ObjectType;
-import de.dentrassi.asyncapi.Property;
 import de.dentrassi.asyncapi.Topic;
-import de.dentrassi.asyncapi.Type;
-import de.dentrassi.asyncapi.TypeReference;
+import de.dentrassi.asyncapi.meta.Information;
+import de.dentrassi.asyncapi.meta.License;
+import de.dentrassi.asyncapi.type.ArrayType;
+import de.dentrassi.asyncapi.type.CoreType;
+import de.dentrassi.asyncapi.type.EnumType;
+import de.dentrassi.asyncapi.type.ObjectType;
+import de.dentrassi.asyncapi.type.Property;
+import de.dentrassi.asyncapi.type.Type;
+import de.dentrassi.asyncapi.type.TypeReference;
 
 /**
  * Parser for AsyncAPI definitions encoded as YAML

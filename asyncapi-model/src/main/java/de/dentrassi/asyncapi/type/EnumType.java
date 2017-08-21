@@ -14,38 +14,31 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi;
+package de.dentrassi.asyncapi.type;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
-public abstract class Type extends TypeReference {
-    private String title;
+public class EnumType extends ParentableType {
+    private Set<String> literals = new LinkedHashSet<>();
 
-    private String description;
-
-    public Type(final String namespace, final String name) {
-        super(namespace, name);
+    public EnumType(final String namespace, final List<String> parents, final String name) {
+        super(namespace, parents, name);
     }
 
-    public String getTitle() {
-        return this.title;
+    public Set<String> getLiterals() {
+        return this.literals;
     }
 
-    public void setTitle(final String title) {
-        this.title = title;
-    }
-
-    public String getDescription() {
-        return this.description;
-    }
-
-    public void setDescription(final String description) {
-        this.description = description;
+    public void setLiterals(final Set<String> literals) {
+        this.literals = literals;
     }
 
     @Override
     public String toString() {
         return ToStringBuilder.reflectionToString(this);
     }
-
 }

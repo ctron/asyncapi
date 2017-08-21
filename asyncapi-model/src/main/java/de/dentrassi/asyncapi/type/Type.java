@@ -14,37 +14,38 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi;
-
-import java.net.URI;
+package de.dentrassi.asyncapi.type;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
-public class License {
-    private String name;
-    private URI url;
+public abstract class Type extends TypeReference {
+    private String title;
 
-    public String getName() {
-        return this.name;
+    private String description;
+
+    public Type(final String namespace, final String name) {
+        super(namespace, name);
     }
 
-    public void setName(final String name) {
-        this.name = name;
+    public String getTitle() {
+        return this.title;
     }
 
-    public URI getUrl() {
-        return this.url;
+    public void setTitle(final String title) {
+        this.title = title;
     }
 
-    public void setUrl(final URI url) {
-        this.url = url;
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setDescription(final String description) {
+        this.description = description;
     }
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this)
-                .append("name", this.name)
-                .append("url", this.url)
-                .toString();
+        return ToStringBuilder.reflectionToString(this);
     }
+
 }

@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-package de.dentrassi.asyncapi;
+package de.dentrassi.asyncapi.validate;
 
-import java.util.Collections;
 import java.util.List;
 
-public class ParentableType extends Type {
+import de.dentrassi.asyncapi.validate.Validator.Marker;
 
-    private final List<String> parents;
+public class ValidationException extends RuntimeException {
 
-    public ParentableType(final String namespace, final List<String> parents, final String name) {
-        super(namespace, name);
-        this.parents = Collections.unmodifiableList(parents);
+    private static final long serialVersionUID = 1L;
+    private final List<Marker> markers;
+
+    public ValidationException(final List<Marker> markers) {
+        super("Invalid API model");
+        this.markers = markers;
     }
 
-    public List<String> getParents() {
-        return this.parents;
+    public List<Marker> getMarkers() {
+        return this.markers;
     }
 
 }
