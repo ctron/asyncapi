@@ -9,8 +9,8 @@
     <version>0.0.4-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>AsyncAPI</name>
-    <description>AsyncAPI tools</description>
+    <name>AsyncAPI Tools</name>
+    <description>A set of Java based AsyncAPI tools</description>
 
     <url>https://dentrassi.de/asyncapi</url>
 
