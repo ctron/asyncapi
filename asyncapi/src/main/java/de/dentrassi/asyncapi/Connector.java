@@ -22,9 +22,6 @@ public interface Connector {
         private String host;
         private String baseTopic;
 
-        protected AbstractBuilder() {
-        }
-
         protected abstract B builder();
 
         public B host(final String host) {

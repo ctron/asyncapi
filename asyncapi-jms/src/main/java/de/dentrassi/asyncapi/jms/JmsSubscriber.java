@@ -21,6 +21,7 @@ import java.util.LinkedList;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import javax.jms.Connection;
@@ -42,6 +43,7 @@ public class JmsSubscriber<T extends de.dentrassi.asyncapi.Message<P>, P extends
 
     private class HandleImpl extends CompletableFuture<Void> implements ListenerHandle {
 
+        private final AtomicBoolean closed = new AtomicBoolean(false);
         private Session session;
         private MessageConsumer consumer;
         private final Consumer<T> handler;
@@ -52,13 +54,18 @@ public class JmsSubscriber<T extends de.dentrassi.asyncapi.Message<P>, P extends
 
         @Override
         public void close() throws Exception {
-
-            try {
-                get();
-            } catch (final Exception e) {
-                // ignore
+            if (this.closed.compareAndSet(false, true)) {
+                whenComplete((v, e) -> {
+                    try {
+                        internalClose();
+                    } catch (final Exception e1) {
+                        throw new RuntimeException(e);
+                    }
+                });
             }
+        }
 
+        private void internalClose() throws Exception {
             LinkedList<Exception> errors = null;
 
             if (this.consumer != null) {
@@ -89,7 +96,7 @@ public class JmsSubscriber<T extends de.dentrassi.asyncapi.Message<P>, P extends
             }
         }
 
-        public void subscribe() {
+        protected void subscribe() {
             try {
                 this.session = JmsSubscriber.this.connection.createSession(Session.CLIENT_ACKNOWLEDGE);
                 final Destination destination = this.session.createTopic(JmsSubscriber.this.topic);

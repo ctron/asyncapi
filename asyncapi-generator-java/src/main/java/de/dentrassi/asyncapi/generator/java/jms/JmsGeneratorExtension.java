@@ -85,7 +85,7 @@ public class JmsGeneratorExtension implements GeneratorExtension {
 
         builder.createType(new TypeInformation("Jms" + connectorType.getSimpleTypeName(), null, null), typeCustomizer, b -> {
 
-            createBuilderType(b, connectorType);
+            createBuilderType(b, context, connectorType);
             createNewBuilderMethod(b);
 
             createServiceFields(b, context, connectorType);
@@ -340,7 +340,7 @@ public class JmsGeneratorExtension implements GeneratorExtension {
     }
 
     @SuppressWarnings("unchecked")
-    private void createBuilderType(final TypeBuilder builder, final ConnectorType connectorType) {
+    private void createBuilderType(final TypeBuilder builder, final Context context, final ConnectorType connectorType) {
 
         final Consumer<TypeDeclaration> typeCustomizer = //
                 TypeBuilder.make(ModifierKeyword.STATIC_KEYWORD).andThen(td -> {
@@ -356,6 +356,28 @@ public class JmsGeneratorExtension implements GeneratorExtension {
                 });
 
         builder.createType(new TypeInformation("Builder", null, null), typeCustomizer, b -> {
+
+            b.createMethod((ast, cu) -> {
+                final MethodDeclaration md = ast.newMethodDeclaration();
+
+                md.setConstructor(true);
+                JDTHelper.makePublic(md);
+
+                md.setName(ast.newSimpleName("Builder"));
+
+                final Block body = ast.newBlock();
+                md.setBody(body);
+
+                final MethodInvocation mi = ast.newMethodInvocation();
+                mi.setExpression(ast.newName(context.fullQualifiedName(connectorType.getSimpleTypeName())));
+                mi.setName(ast.newSimpleName("defaultSettings"));
+                body.statements().add(ast.newExpressionStatement(mi));
+
+                mi.arguments().add(ast.newThisExpression());
+
+                return md;
+            });
+
             b.createMethod((ast, cu) -> {
 
                 final MethodDeclaration md = ast.newMethodDeclaration();

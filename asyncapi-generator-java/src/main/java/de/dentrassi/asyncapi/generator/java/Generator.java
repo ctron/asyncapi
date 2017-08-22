@@ -18,7 +18,6 @@ package de.dentrassi.asyncapi.generator.java;
 
 import static de.dentrassi.asyncapi.generator.java.PackageTypeBuilder.asPropertyName;
 import static de.dentrassi.asyncapi.generator.java.PackageTypeBuilder.asTypeName;
-import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makeProtected;
 import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.makePublic;
 import static de.dentrassi.asyncapi.generator.java.util.JDTHelper.newStringLiteral;
 import static de.dentrassi.asyncapi.generator.java.util.Names.makeVersion;
@@ -184,8 +183,6 @@ public class Generator {
 
     private static final String TYPE_NAME_TOPIC_ANN = "de.dentrassi.asyncapi.Topic";
 
-    private static final String TYPE_NAME_ABSTRACT_CONNECTOR_BUILDER = "de.dentrassi.asyncapi.Connector.AbstractBuilder";
-
     public static Builder newBuilder() {
         return new Builder();
     }
@@ -319,59 +316,72 @@ public class Generator {
     @SuppressWarnings("unchecked")
     private void renderDefaultConnectorBuilder(final TypeBuilder builder, final ConnectorType connectorType) {
 
-        Consumer<TypeDeclaration> typeCustomizer = td -> {
-            final AST ast = td.getAST();
+        /*
+         * public static <B extends Builder<B,C>, C extends Client> B defaultSettings ( B builder ) {
+         *   builder.host("foobar");
+         *   builder.baseTopic("hitch");
+         *   return builder;
+         * }
+         */
 
-            final SimpleType st = ast.newSimpleType(ast.newName(TYPE_NAME_ABSTRACT_CONNECTOR_BUILDER));
+        builder.createMethod((ast, cu) -> {
+            final MethodDeclaration md = ast.newMethodDeclaration();
 
-            td.setSuperclassType(parametrizeSimple(st, "B", "C"));
-        };
+            md.setName(ast.newSimpleName("defaultSettings"));
+            JDTHelper.make(md, ModifierKeyword.PUBLIC_KEYWORD, ModifierKeyword.STATIC_KEYWORD);
 
-        typeCustomizer = typeCustomizer.andThen(td -> {
-            final AST ast = td.getAST();
+            // parameters
+
+            md.parameters().add(JDTHelper.createParameter(ast, "B", "builder"));
+
+            // type variables
 
             final TypeParameter b = ast.newTypeParameter();
             b.setName(ast.newSimpleName("B"));
-            b.typeBounds().add(parametrizeSimple(ast.newSimpleType(ast.newSimpleName("Builder")), "B", "C"));
+            b.typeBounds().add(parametrizeSimple(ast.newSimpleType(ast.newName("de.dentrassi.asyncapi.Connector.AbstractBuilder")), "B", "C"));
 
             final TypeParameter c = ast.newTypeParameter();
             c.setName(ast.newSimpleName("C"));
             c.typeBounds().add(ast.newSimpleType(ast.newSimpleName(connectorType.getSimpleTypeName())));
 
-            td.typeParameters().add(b);
-            td.typeParameters().add(c);
-        });
+            md.typeParameters().add(b);
+            md.typeParameters().add(c);
 
-        typeCustomizer = typeCustomizer.andThen(td -> JDTHelper.make(td, ModifierKeyword.STATIC_KEYWORD, ModifierKeyword.ABSTRACT_KEYWORD));
+            // body
 
-        builder.createType(new TypeInformation("Builder", null, null), typeCustomizer, b -> {
+            final Block body = ast.newBlock();
+            md.setBody(body);
 
-            b.createMethod((ast, cu) -> {
-                final MethodDeclaration md = ast.newMethodDeclaration();
-                md.setConstructor(true);
-                md.setName(ast.newSimpleName("Builder"));
-                makeProtected(md);
+            // statements
 
-                final Block body = ast.newBlock();
-                md.setBody(body);
+            if (this.api.getHost() != null && !this.api.getHost().isEmpty()) {
+                final MethodInvocation mi = ast.newMethodInvocation();
+                mi.setExpression(ast.newSimpleName("builder"));
+                mi.setName(ast.newSimpleName("host"));
+                mi.arguments().add(newStringLiteral(ast, this.api.getHost()));
+                body.statements().add(ast.newExpressionStatement(mi));
+            }
 
-                if (this.api.getHost() != null && !this.api.getHost().isEmpty()) {
-                    final MethodInvocation mi = ast.newMethodInvocation();
-                    mi.setName(ast.newSimpleName("host"));
-                    mi.arguments().add(newStringLiteral(ast, this.api.getHost()));
-                    body.statements().add(ast.newExpressionStatement(mi));
-                }
+            if (this.api.getBaseTopic() != null && !this.api.getBaseTopic().isEmpty()) {
+                final MethodInvocation mi = ast.newMethodInvocation();
+                mi.setExpression(ast.newSimpleName("builder"));
+                mi.setName(ast.newSimpleName("baseTopic"));
+                mi.arguments().add(newStringLiteral(ast, this.api.getBaseTopic()));
+                body.statements().add(ast.newExpressionStatement(mi));
+            }
 
-                if (this.api.getBaseTopic() != null && !this.api.getBaseTopic().isEmpty()) {
-                    final MethodInvocation mi = ast.newMethodInvocation();
-                    mi.setName(ast.newSimpleName("baseTopic"));
-                    mi.arguments().add(newStringLiteral(ast, this.api.getBaseTopic()));
-                    body.statements().add(ast.newExpressionStatement(mi));
-                }
+            // return type
+            md.setReturnType2(ast.newSimpleType(ast.newSimpleName("B")));
 
-                return md;
-            });
+            // return value
 
+            final ReturnStatement ret = ast.newReturnStatement();
+            ret.setExpression(ast.newSimpleName("builder"));
+            body.statements().add(ret);
+
+            // return
+
+            return md;
         });
     }
 
