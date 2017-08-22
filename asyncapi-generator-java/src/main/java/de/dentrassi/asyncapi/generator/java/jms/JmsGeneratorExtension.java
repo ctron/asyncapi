@@ -65,6 +65,7 @@ import de.dentrassi.asyncapi.generator.java.util.Names;
 public class JmsGeneratorExtension implements GeneratorExtension {
 
     private static final String TYPE_NAME_ABSTRACT_JMS_CONNECTOR = "de.dentrassi.asyncapi.jms.AbstractJmsConnector";
+    private static final String TYPE_NAME_ABSTRACT_JMS_SERVICE_IMPL = "de.dentrassi.asyncapi.jms.AbstractJmsServiceImpl";
 
     @Override
     public void generate(final AsyncApi api, final Options options, final Context context) {
@@ -110,7 +111,7 @@ public class JmsGeneratorExtension implements GeneratorExtension {
                 final TypeBuilder builder = context.createTypeBuilder("jms." + connectorType.getPackageName() + "." + version);
 
                 final Consumer<TypeDeclaration> typeCustomizer = TypeBuilder.superInterfaces(Arrays.asList(serviceTypeName)) //
-                        .andThen(TypeBuilder.superClass("de.dentrassi.asyncapi.jms.AbstractJmsServiceImpl"));
+                        .andThen(TypeBuilder.superClass(TYPE_NAME_ABSTRACT_JMS_SERVICE_IMPL));
 
                 builder.createType(new TypeInformation(implName, null, null), typeCustomizer, b -> {
 
